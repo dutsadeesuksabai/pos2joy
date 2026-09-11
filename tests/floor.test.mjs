@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { canvasSchema, layoutCollisions, protectedTableChanges, branchLabelConflicts, objectBounds, checkRevision, FloorConflictError } from "../src/features/floor/model.ts";
+import { canvasSchema, layoutCollisions, protectedTableChanges, branchLabelConflicts, objectBounds, resizeBounds, checkRevision, FloorConflictError } from "../src/features/floor/model.ts";
 
 const table = (extra = {}) => ({ id: randomUUID(), kind: "table", label: "01", capacity: 4, shape: "rectangle", accessible: false, x: 50, y: 50, width: 100, height: 80, rotation: 0, ...extra });
 const canvas = (...objects) => ({ width: 1000, height: 700, objects });
@@ -25,4 +25,35 @@ test("a table number live on another floor blocks publishing; a retired one is f
   assert.deepEqual(branchLabelConflicts(canvas(table({ label: "01" })), [{ ...other, enabled: false }]), []);
   assert.deepEqual(branchLabelConflicts(canvas(table({ label: "02" })), [other]), []);
   assert.deepEqual(branchLabelConflicts(canvas(block("wall", { label: "01" })), [other]), []);
+});
+const room = { width: 1000, height: 700 };
+const start = { x: 100, y: 100, width: 200, height: 150 };
+test("dragging a south-east handle grows width and height, snapped to the grid", () => {
+  assert.deepEqual(resizeBounds(start, "se", 44, 63, room), { x: 100, y: 100, width: 240, height: 210 });
+});
+test("dragging a north-west handle moves the corner and keeps the opposite edge still", () => {
+  const next = resizeBounds(start, "nw", -50, -30, room);
+  assert.deepEqual(next, { x: 50, y: 70, width: 250, height: 180 });
+  assert.equal(next.x + next.width, start.x + start.width);
+  assert.equal(next.y + next.height, start.y + start.height);
+});
+test("a shrinking edge stops at the minimum instead of inverting", () => {
+  for (const corner of ["nw", "ne", "sw", "se"]) {
+    const next = resizeBounds(start, corner, corner.includes("w") ? 9999 : -9999, corner.includes("n") ? 9999 : -9999, room);
+    assert.equal(next.width, 20, corner); assert.equal(next.height, 20, corner);
+    assert.ok(next.x >= 0 && next.y >= 0, corner);
+  }
+});
+test("a resize never leaves the room", () => {
+  for (const [corner, dx, dy] of [["se", 9999, 9999], ["nw", -9999, -9999], ["ne", 9999, -9999], ["sw", -9999, 9999]]) {
+    const next = resizeBounds(start, corner, dx, dy, room);
+    assert.ok(next.x >= 0 && next.y >= 0, corner);
+    assert.ok(next.x + next.width <= room.width, `${corner} width`);
+    assert.ok(next.y + next.height <= room.height, `${corner} height`);
+  }
+});
+test("a resized zone still satisfies the canvas schema", () => {
+  const zone = block("zone", { x: 100, y: 100, width: 200, height: 150 });
+  const grown = { ...zone, ...resizeBounds(zone, "se", 300, 200, room) };
+  assert.equal(canvasSchema.safeParse(canvas(grown)).success, true);
 });

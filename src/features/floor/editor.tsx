@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Armchair, Check, DoorOpen, Grid2X2, LockKeyhole, Minus, Plus, RotateCw, RotateCcw, Save, Square, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createFloor, saveFloor } from "./actions";
-import { blankCanvas, canvasSchema, layoutCollisions, objectBounds, overlaps, type FloorCanvas, type FloorObject, type FloorSnapshot } from "./model";
+import { blankCanvas, canvasSchema, layoutCollisions, objectBounds, overlaps, resizeBounds, type FloorCanvas, type FloorObject, type FloorSnapshot } from "./model";
 
 type Props = { branchId: string; floors: { id: string; name: string }[]; snapshot: FloorSnapshot | null; canEdit: boolean };
 export function FloorEditor({ branchId, floors, snapshot, canEdit }: Props) {
@@ -25,6 +25,7 @@ export function FloorEditor({ branchId, floors, snapshot, canEdit }: Props) {
   const [pending, startTransition] = useTransition();
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ id: string; x: number; y: number } | null>(null);
+  const resize = useRef<{ id: string; corner: string; x: number; y: number; width: number; height: number; fromX: number; fromY: number } | null>(null);
   const gridId = useId().replace(/:/g, "");
   const dirty = JSON.stringify(canvas) !== JSON.stringify(baseline);
   const visibleCanvas = view === "published" ? published ?? blankCanvas() : canvas;
@@ -81,9 +82,31 @@ export function FloorEditor({ branchId, floors, snapshot, canEdit }: Props) {
     event.currentTarget.setPointerCapture(event.pointerId);
     event.stopPropagation();
   }
+  // Corner handles resize in the object's own axes, so they are offered only on
+  // an unrotated object. ponytail: rotate, then size, covers the same ground
+  // without the inverse-rotation maths a rotated drag would need.
+  function beginResize(event: React.PointerEvent<SVGRectElement>, item: FloorObject, corner: string) {
+    if (!editable || isBusy(item.id)) return;
+    const p = point(event); if (!p) return;
+    setSelected(item.id);
+    setHistory(items => [...items.slice(-29), structuredClone(canvas)]);
+    resize.current = { id: item.id, corner, x: item.x, y: item.y, width: item.width, height: item.height, fromX: p.x, fromY: p.y };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.stopPropagation();
+  }
+  function resizeMove(p: DOMPoint) {
+    const current = resize.current;
+    if (!current) return;
+    const dx = p.x - current.fromX, dy = p.y - current.fromY;
+    setCanvas(value => ({ ...value, objects: value.objects.map(item =>
+      item.id === current.id ? { ...item, ...resizeBounds(current, current.corner, dx, dy, value) } : item) }));
+  }
   function dragMove(event: React.PointerEvent) {
-    const current = drag.current, p = point(event);
-    if (!current || !p || !editable) return;
+    const p = point(event);
+    if (!p || !editable) return;
+    if (resize.current) return resizeMove(p);
+    const current = drag.current;
+    if (!current) return;
     setCanvas(value => ({ ...value, objects: value.objects.map(item => {
       if (item.id !== current.id) return item;
       const next = { ...item, x: Math.max(0, Math.round((p.x - current.x) / 10) * 10), y: Math.max(0, Math.round((p.y - current.y) / 10) * 10) };
@@ -98,7 +121,7 @@ export function FloorEditor({ branchId, floors, snapshot, canEdit }: Props) {
     const parsed = canvasSchema.safeParse(canvas);
     if (!parsed.success) return announce(parsed.error.issues[0]?.message ?? "Check the layout settings.", true);
     if (mode === "publish" && collisions.length) return announce(collisions[0], true);
-    drag.current = null;
+    drag.current = null; resize.current = null;
     startTransition(async () => {
       try {
         const result = await saveFloor({ branchId, floorId: snapshot.id, expectedRevision: revision, canvas: parsed.data, mode });
@@ -129,7 +152,7 @@ export function FloorEditor({ branchId, floors, snapshot, canEdit }: Props) {
     <div className={`planner-body ${view === "published" ? "published-view" : ""}`}>
     {canEdit && view === "draft" && <aside className="object-palette"><h2>Make your space</h2><span className="palette-label">TABLES</span>{[2,4,8].map(seats => <button key={seats} disabled={!editable} onClick={() => addObject("table", seats)}><Armchair/>{seats} seats<Plus size={15}/></button>)}<button disabled={!editable} onClick={() => addObject("table", 6)}><Armchair/>Custom table<Plus size={15}/></button><span className="palette-label">ROOM BLOCKS</span>{[{ kind: "wall", icon: Square, name: "Wall" }, { kind: "counter", icon: Minus, name: "Counter" }, { kind: "entrance", icon: DoorOpen, name: "Entrance" }, { kind: "zone", icon: Grid2X2, name: "Zone" }].map(item => <button key={item.kind} disabled={!editable} onClick={() => addObject(item.kind as FloorObject["kind"])}><item.icon/>{item.name}<Plus size={15}/></button>)}<p>Drag to place. Use arrow keys for small moves. Table footprints include space for chairs.</p><Button variant="ghost" disabled={!editable || !history.length} onClick={() => { setCanvas(history[history.length - 1]); setHistory(items => items.slice(0,-1)); }}><RotateCcw/>Undo</Button><Button variant="ghost" disabled={pending || !dirty} onClick={() => { setCanvas(structuredClone(baseline)); setHistory([]); setSelected(null); }}>Discard local edits</Button></aside>}
     <div className="planner-stage"><div className="canvas-tools"><span>{visibleCanvas.width} × {visibleCanvas.height} units</span><div><button aria-label="Zoom out" disabled={zoom <= .75} onClick={() => setZoom(z => Math.max(.75, z - .25))}><Minus size={16}/></button><span>{Math.round(zoom * 100)}%</span><button aria-label="Zoom in" disabled={zoom >= 2} onClick={() => setZoom(z => Math.min(2, z + .25))}><Plus size={16}/></button></div></div>
-    {view === "published" && !published ? <div className="planner-empty"><h2>No published layout yet.</h2><p>{canEdit ? "Save your draft as you work, then publish when the room is ready." : "Your manager is still preparing this room."}</p></div> : <div className="canvas-scroll"><svg ref={svgRef} role="group" aria-label={`${snapshot.name} floor plan. Select objects to inspect or edit them.`} className="planner-svg" viewBox={`0 0 ${visibleCanvas.width} ${visibleCanvas.height}`} style={{ width: `${zoom * 100}%`, minWidth: `${600 * zoom}px` }} onPointerMove={dragMove} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onPointerDown={event => { if (event.target === event.currentTarget) setSelected(null); }}>
+    {view === "published" && !published ? <div className="planner-empty"><h2>No published layout yet.</h2><p>{canEdit ? "Save your draft as you work, then publish when the room is ready." : "Your manager is still preparing this room."}</p></div> : <div className="canvas-scroll"><svg ref={svgRef} role="group" aria-label={`${snapshot.name} floor plan. Select objects to inspect or edit them.`} className="planner-svg" viewBox={`0 0 ${visibleCanvas.width} ${visibleCanvas.height}`} style={{ width: `${zoom * 100}%`, minWidth: `${600 * zoom}px` }} onPointerMove={dragMove} onPointerUp={() => { drag.current = null; resize.current = null; }} onPointerCancel={() => { drag.current = null; resize.current = null; }} onPointerDown={event => { if (event.target === event.currentTarget) setSelected(null); }}>
       <defs><pattern id={gridId} width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#ccd9e8"/></pattern></defs><rect width="100%" height="100%" fill={`url(#${gridId})`} pointerEvents="none"/>
       {[...visibleCanvas.objects].sort((a,b) => Number(b.kind === "zone") - Number(a.kind === "zone")).map(item => {
         const state = snapshot.tables.find(t => t.id === item.id)?.state ?? "available";
@@ -139,6 +162,9 @@ export function FloorEditor({ branchId, floors, snapshot, canEdit }: Props) {
           if (editable && !isBusy(item.id) && ["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key)) { event.preventDefault(); setSelected(item.id); const step = event.shiftKey ? 20 : 10; change({ ...canvas, objects: canvas.objects.map(o => o.id === item.id ? { ...o, x: Math.max(0, o.x + (event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0)), y: Math.max(0, o.y + (event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : 0)) } : o) }); }
         }}>
           {item.kind === "table" ? <>{item.shape === "round" ? <ellipse cx={item.width/2} cy={item.height/2} rx={item.width/2-8} ry={item.height/2-8}/> : <rect x="8" y="8" width={item.width-16} height={item.height-16} rx="12"/>}<text x={item.width/2} y={item.height/2-7} textAnchor="middle" className="plan-number">{item.label}</text><text x={item.width/2} y={item.height/2+16} textAnchor="middle" className="plan-seats">{item.capacity} seats{item.accessible ? " · A" : ""}</text>{isBusy(item.id) && <text x={item.width/2} y={item.height-14} textAnchor="middle" className="plan-state">{state}</text>}</> : <><rect width={item.width} height={item.height} rx={item.kind === "zone" ? 12 : 4}/><text x={item.width/2} y={Math.min(item.height/2+5,25)} textAnchor="middle" className="plan-block-label">{item.label}</text></>}
+          {active && editable && !isBusy(item.id) && item.rotation === 0 && ([["nw",0,0],["ne",item.width,0],["sw",0,item.height],["se",item.width,item.height]] as const).map(([corner, hx, hy]) =>
+            <rect key={corner} className={`resize-handle ${corner}`} x={hx - 7} y={hy - 7} width={14} height={14} rx={3}
+              onPointerDown={event => beginResize(event, item, corner)}><title>Drag to resize {item.label}</title></rect>)}
         </g>;
       })}
     </svg></div>}

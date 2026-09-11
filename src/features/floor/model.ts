@@ -43,6 +43,29 @@ export function objectBounds(object: { x: number; y: number; width: number; heig
 export function overlaps(a: ReturnType<typeof objectBounds>, b: ReturnType<typeof objectBounds>) {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
+// Corner-handle resize. A shrinking edge stops at the minimum instead of
+// dragging through its anchor, and the result always lands inside the room.
+export function resizeBounds(
+  start: { x: number; y: number; width: number; height: number },
+  corner: string, dx: number, dy: number, room: { width: number; height: number },
+) {
+  const snap = (value: number) => Math.round(value / 10) * 10;
+  let { x, y, width, height } = start;
+  if (corner.includes("e")) width = start.width + dx;
+  if (corner.includes("s")) height = start.height + dy;
+  if (corner.includes("w")) { x = start.x + dx; width = start.width - dx; }
+  if (corner.includes("n")) { y = start.y + dy; height = start.height - dy; }
+  [x, y, width, height] = [snap(x), snap(y), snap(width), snap(height)];
+  if (width < 20) { if (corner.includes("w")) x = start.x + start.width - 20; width = 20; }
+  if (height < 20) { if (corner.includes("n")) y = start.y + start.height - 20; height = 20; }
+  if (x < 0) { width += x; x = 0; }
+  if (y < 0) { height += y; y = 0; }
+  x = Math.min(x, room.width - 20); y = Math.min(y, room.height - 20);
+  width = Math.max(20, Math.min(width, room.width - x));
+  height = Math.max(20, Math.min(height, room.height - y));
+  return { x, y, width, height };
+}
+
 export function layoutCollisions(canvas: FloorCanvas): string[] {
   const errors: string[] = [];
   for (let i = 0; i < canvas.objects.length; i++) {
