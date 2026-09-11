@@ -15,7 +15,7 @@ The current environment rejects npm registry requests with `EACCES`; there is no
 
 ## 2. Configure one Supabase project
 
-Copy `.env.example` to `.env.local` and enter the project URL, publishable key, and PostgreSQL connection URL. Keep these values local; do not paste the database password into chat or client code. Enable email/password authentication and create individual staff accounts through Supabase Auth for the initial setup. No public signup, invitation sender, or password-reset flow is implemented yet.
+Copy `.env.example` to `.env` and enter the project URL, publishable key, and PostgreSQL connection URL. Keep these values local; do not paste the database password into chat or client code. Enable email/password authentication and create individual staff accounts through Supabase Auth for the initial setup. No public signup, invitation sender, or password-reset flow is implemented yet.
 
 `DATABASE_URL` is used only by server-side Drizzle and the explicit migration command. This initial implementation relies on a private database role with access to these RLS-protected tables, typically the Supabase database owner. Every application query independently verifies the current user and membership. Before broad production use, separate the migration identity from a restricted application database role and audit every new data-access method. A browser publishable key cannot access these tables.
 
@@ -35,7 +35,7 @@ Once the generated migration is reviewed:
 npm run db:migrate
 ```
 
-This command reads `.env.local` and applies migrations explicitly. Application startup does not modify the database. All core tables have RLS enabled with **no client policies**, so `anon` and `authenticated` Data API callers have no row access. This is intentional: current staff data goes through verified server queries. Add carefully scoped policies and integration tests before introducing client-side Realtime or Data API queries.
+This command reads `.env` and applies migrations explicitly. Application startup does not modify the database. All core tables have RLS enabled with **no client policies**, so `anon` and `authenticated` Data API callers have no row access. This is intentional: current staff data goes through verified server queries. Add carefully scoped policies and integration tests before introducing client-side Realtime or Data API queries.
 
 ## 4. Assign the first restaurant owner
 

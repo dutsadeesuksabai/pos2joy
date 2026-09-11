@@ -6,7 +6,9 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for migrations");
 let client;
 try {
-  client = postgres(process.env.DATABASE_URL, { max: 1, prepare: false });
+  // Notices such as "relation already exists, skipping" are expected on a
+  // re-run and drown the result; failures still raise.
+  client = postgres(process.env.DATABASE_URL, { max: 1, prepare: false, onnotice: () => {} });
   await migrate(drizzle(client), { migrationsFolder: "./drizzle" });
   console.log("Reviewed Drizzle migrations applied.");
 } catch (wrapped) {
