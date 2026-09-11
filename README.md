@@ -1,4 +1,4 @@
-# Tablejoy
+# POS 2 joy
 
 Restaurant QR ordering, a sandbox floor builder, and a fair, table-aware queue.
 
