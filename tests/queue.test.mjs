@@ -1,0 +1,15 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { recommend } from "../src/features/queue/recommend.ts";
+const now = 1800000000000;
+const table = { id: "t4", label: "04", capacity: 4, status: "available", x: 0, y: 0 };
+const party = (id, size, minutes, extra = {}) => ({ id, name: id, size, joinedAt: now - minutes * 60000, status: "waiting", ...extra });
+test("four-person fit can outrank a slightly earlier two-person party", () => assert.equal(recommend(table, [party("two", 2, 10), party("four", 4, 8)], now)[0].party.id, "four"));
+test("longer wait outweighs seat utilization", () => assert.equal(recommend(table, [party("two", 2, 25), party("four", 4, 8)], now)[0].party.id, "two"));
+test("maximum-wait parties use arrival time despite fit", () => assert.equal(recommend(table, [party("two", 2, 32), party("four", 4, 30)], now)[0].party.id, "two"));
+test("does not hold a four-seat table without a competing party", () => assert.equal(recommend(table, [party("two", 2, 1)], now).length, 1));
+test("filters incompatible, seated, and inaccessible parties", () => assert.deepEqual(recommend(table, [party("eight", 8, 90), party("access", 2, 20, { needsAccessible: true }), party("done", 2, 20, { status: "seated" })], now), []));
+test("does not recommend occupied or reserved tables", () => { for (const status of ["occupied", "reserved"]) assert.deepEqual(recommend({ ...table, status }, [party("two", 2, 5)], now), []); });
+test("ties are deterministic", () => assert.equal(recommend(table, [party("b", 2, 10), party("a", 2, 10)], now)[0].party.id, "a"));
+test("allows accessibility requests when supported", () => assert.equal(recommend({ ...table, accessible: true }, [party("a", 2, 10, { needsAccessible: true })], now).length, 1));
+test("rejects invalid party sizes and policy", () => { assert.equal(recommend(table, [party("a", -2, 10), party("b", 1.5, 5)], now).length, 0); assert.throws(() => recommend(table, [], now, { maxWaitMinutes: -1, fitWeight: 10 })); });
