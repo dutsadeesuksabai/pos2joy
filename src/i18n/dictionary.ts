@@ -83,6 +83,15 @@ const en = {
   "staff.min": "min",
   "staff.connectionLost": "Connection lost. Refresh.",
   "staff.signOut": "Sign out",
+  "staff.seating": "Seating",
+  "staff.tapTable": "tap a table that fits",
+  "staff.cancel": "Cancel",
+  "staff.walkIn": "Walk-in",
+  "staff.doesNotFit": "does not fit",
+  "staff.waiting": "waiting",
+  "staff.occupied": "occupied",
+  "staff.available": "available",
+  "staff.reservedState": "reserved",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -164,6 +173,15 @@ const th: Partial<Record<MessageKey, string>> = {
   "staff.min": "นาที",
   "staff.connectionLost": "การเชื่อมต่อหลุด กรุณารีเฟรช",
   "staff.signOut": "ออกจากระบบ",
+  "staff.seating": "กำลังจัดที่นั่งให้",
+  "staff.tapTable": "แตะโต๊ะที่นั่งได้",
+  "staff.cancel": "ยกเลิก",
+  "staff.walkIn": "ลูกค้าเดินเข้า",
+  "staff.doesNotFit": "นั่งไม่พอ",
+  "staff.waiting": "รออยู่",
+  "staff.occupied": "มีลูกค้า",
+  "staff.available": "ว่าง",
+  "staff.reservedState": "จองไว้",
 };
 
 const zh: Partial<Record<MessageKey, string>> = {
@@ -243,6 +261,15 @@ const zh: Partial<Record<MessageKey, string>> = {
   "staff.min": "分钟",
   "staff.connectionLost": "连接中断，请刷新。",
   "staff.signOut": "退出登录",
+  "staff.seating": "正在安排",
+  "staff.tapTable": "请点选合适的桌位",
+  "staff.cancel": "取消",
+  "staff.walkIn": "散客",
+  "staff.doesNotFit": "坐不下",
+  "staff.waiting": "等待中",
+  "staff.occupied": "用餐中",
+  "staff.available": "空桌",
+  "staff.reservedState": "已预留",
 };
 
 const dictionaries: Record<Locale, Partial<Record<MessageKey, string>>> = { en, th, zh };
