@@ -70,9 +70,34 @@ export const queueEntries = pgTable("queue_entries", {
   id: id(), organizationId: uuid("organization_id").notNull(), branchId: uuid("branch_id").notNull(), guestName: text("guest_name").notNull(), partySize: integer("party_size").notNull(),
   status: text("status", { enum: ["waiting", "offered", "seated", "cancelled", "no_show"] }).notNull().default("waiting"),
   joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
+  needsAccessible: boolean("needs_accessible").notNull().default(false),
+  requestedFloorId: uuid("requested_floor_id"),
+  seatedTableId: uuid("seated_table_id"),
+  seatedAt: timestamp("seated_at", { withTimezone: true }),
+  seatedBy: uuid("seated_by"),
+  seatingReason: text("seating_reason"),
+  // Calling a party holds a table for them and puts them on the call display.
+  calledAt: timestamp("called_at", { withTimezone: true }),
+  calledTableId: uuid("called_table_id"),
 }, t => [
+  unique().on(t.id, t.branchId, t.organizationId),
   check("party_size_positive", sql`${t.partySize} > 0`), check("queue_status_valid", sql`${t.status} in ('waiting', 'offered', 'seated', 'cancelled', 'no_show')`),
   foreignKey({ columns: [t.branchId, t.organizationId], foreignColumns: [branches.id, branches.organizationId] }),
+  foreignKey({ name: "queue_requested_floor_tenant_fk", columns: [t.requestedFloorId, t.branchId, t.organizationId], foreignColumns: [floors.id, floors.branchId, floors.organizationId] }),
+  foreignKey({ name: "queue_seated_table_tenant_fk", columns: [t.seatedTableId, t.branchId, t.organizationId], foreignColumns: [diningTables.id, diningTables.branchId, diningTables.organizationId] }),
+  foreignKey({ name: "queue_called_table_tenant_fk", columns: [t.calledTableId, t.branchId, t.organizationId], foreignColumns: [diningTables.id, diningTables.branchId, diningTables.organizationId] }),
+  check("queue_called_together", sql`(${t.calledAt} is null) = (${t.calledTableId} is null)`),
+]).enableRLS();
+
+export const queueSeatingEvents = pgTable("queue_seating_events", {
+  id: id(), organizationId: uuid("organization_id").notNull(), branchId: uuid("branch_id").notNull(),
+  tableId: uuid("table_id").notNull(), queueEntryId: uuid("queue_entry_id"), actorId: uuid("actor_id").notNull(),
+  decision: text("decision", { enum: ["recommended", "override", "walk_in"] }).notNull(),
+  reason: text("reason").notNull(), createdAt: createdAt(),
+}, t => [
+  check("queue_seating_decision_valid", sql`${t.decision} in ('recommended', 'override', 'walk_in')`),
+  foreignKey({ name: "queue_event_table_tenant_fk", columns: [t.tableId, t.branchId, t.organizationId], foreignColumns: [diningTables.id, diningTables.branchId, diningTables.organizationId] }),
+  foreignKey({ name: "queue_event_entry_tenant_fk", columns: [t.queueEntryId, t.branchId, t.organizationId], foreignColumns: [queueEntries.id, queueEntries.branchId, queueEntries.organizationId] }),
 ]).enableRLS();
 
 // The QR sticker on a table encodes its random table ID; no separate token table.

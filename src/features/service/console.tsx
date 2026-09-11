@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Armchair, Check, Clock3, QrCode, Receipt, Users, X } from "lucide-react";
+import { Armchair, BellRing, Check, Clock3, QrCode, Receipt, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/features/orders/model";
 import { recommend } from "@/features/queue/recommend";
-import { closeTable, joinQueue, markTable, seatTable } from "./actions";
+import { callQueue, cancelCall, closeTable, joinQueue, markTable, seatTable } from "./actions";
 import type { ServiceSnapshot } from "./repository";
 
 type Props = { branchId: string; currency: string; origin: string; snapshot: ServiceSnapshot; canBill: boolean };
@@ -46,6 +46,10 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
   }
 
   const waited = (joinedAt: number) => Math.max(0, Math.floor((now - joinedAt) / 60000));
+  // The Call button lights up on its own: it takes the smallest free table that
+  // fits, so a host never has to choose one before calling the next party.
+  const freeFor = (size: number) => snapshot.tables.filter(item => item.state === "available" && item.capacity >= size).sort((a, b) => a.capacity - b.capacity)[0];
+  const calledTable = (entryId: string) => snapshot.queue.find(entry => entry.id === entryId)?.calledTableLabel ?? null;
 
   return <section className="pos">
     <div className="pos-tabs" role="tablist">
@@ -77,14 +81,25 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
             <input id="party-size" type="number" min={1} max={30} value={size} required onChange={event => setSize(Math.max(1, Math.min(30, Number(event.target.value) || 1)))}/>
             <Button type="submit" disabled={pending || !name.trim()}>Add</Button>
           </form>
+          <a className="call-link" href={`/call/${branchId}`} target="_blank" rel="noreferrer"><BellRing size={14}/>Open the call display for the guest screen</a>
           {snapshot.queue.length === 0
             ? <p className="pos-empty">Nobody waiting.</p>
             : <ul className="queue-rows">{snapshot.queue.map((entry, index) => <li key={entry.id}>
                 <span className="queue-no">{String(index + 1).padStart(2, "0")}</span>
                 <div><strong>{entry.guestName}</strong><span><Users size={13}/>{entry.partySize} · <Clock3 size={13}/>{waited(entry.joinedAt)} min</span></div>
-                {table && table.state === "available" && entry.partySize <= table.capacity
-                  ? <Button disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: entry.id }))}>Seat</Button>
-                  : <span className="queue-hint">{table ? (table.state !== "available" ? `${table.label} busy` : `needs ${entry.partySize}`) : "pick a table"}</span>}
+                {entry.status === "offered"
+                  ? <div className="queue-called">
+                      <span>Called{calledTable(entry.id) ? ` → ${calledTable(entry.id)}` : ""}</span>
+                      <button disabled={pending} onClick={() => run(() => cancelCall({ branchId, entryId: entry.id }))}>No show</button>
+                    </div>
+                  : table && table.state === "available" && entry.partySize <= table.capacity
+                  ? <div className="queue-acts">
+                      <Button disabled={pending} onClick={() => run(() => callQueue({ branchId, entryId: entry.id, tableId: table.id }))}><BellRing/>Call</Button>
+                      <Button variant="outline" disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: entry.id }))}>Seat</Button>
+                    </div>
+                  : freeFor(entry.partySize)
+                  ? <Button disabled={pending} onClick={() => run(() => callQueue({ branchId, entryId: entry.id, tableId: freeFor(entry.partySize)!.id }))}><BellRing/>Call</Button>
+                  : <span className="queue-hint">no free table</span>}
               </li>)}</ul>}
         </>}
       </div>
