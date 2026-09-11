@@ -99,7 +99,16 @@ commit;
 
 Members need both an `organization_memberships` row with role `member` and a matching `branch_staff` row. Allowed branch roles: `manager`, `host`, `server`, `kitchen`, `cashier`. Owners inherit branch access within their own organization. Role changes currently happen through an administrator; team-management mutations are not implemented. Do not use shared staff passwords.
 
-## 5. Verify the integration
+## 5. How staff sign in
+
+Staff sign in with a username, not an email address. Supabase Auth keys accounts by
+email, so `src/features/tenancy/identity.ts` maps `owner` to `owner@pos2joy.local`
+and back again for display. Nothing stores the mapping; it is derived, which is why
+the username character set is deliberately narrow. Set `AUTH_USERNAME_DOMAIN` to
+change the suffix, and keep `SEED_EMAIL_DOMAIN` the same. A full email address still
+works in the sign-in box, so accounts created with a real address keep working.
+
+## 6. Verify the integration
 
 Start `npm run dev`, open `/login`, sign in, and select a branch at `/workspace`. `/workspace/[branchId]` shows verified branch information and role permissions. It deliberately does not reuse demo state as live restaurant data.
 

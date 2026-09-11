@@ -8,13 +8,13 @@ import { signIn, signOut } from "./actions";
 export function SignInForm() {
   const [state, action, pending] = useActionState(signIn, { error: "" });
   return <form action={action} className="auth-form">
-    <label htmlFor="email">Work email</label>
-    <input id="email" name="email" type="email" autoComplete="username" required maxLength={254} placeholder="you@restaurant.com" aria-describedby={state.error ? "auth-error" : undefined}/>
+    <label htmlFor="identifier">Username</label>
+    <input id="identifier" name="identifier" type="text" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} required maxLength={254} placeholder="e.g. owner" aria-describedby={state.error ? "auth-error" : undefined}/>
     <label htmlFor="password">Password</label>
     <input id="password" name="password" type="password" autoComplete="current-password" required maxLength={256} aria-describedby={state.error ? "auth-error" : undefined}/>
     {state.error && <p id="auth-error" className="auth-error" role="alert">{state.error}</p>}
     <Button type="submit" disabled={pending}>{pending ? "Signing in…" : "Sign in to your restaurant"}<ArrowRight/></Button>
-    <p className="auth-help">Use the individual staff account your restaurant owner provided.</p>
+    <p className="auth-help">Use the individual staff account your restaurant owner provided. A work email address works here too.</p>
   </form>;
 }
 

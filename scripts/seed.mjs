@@ -12,7 +12,9 @@ if (!api) throw new Error("NEXT_PUBLIC_SUPABASE_URL is required");
 // SUPABASE_SECRET_KEY is optional. With it, missing logins are created for you.
 // Without it, logins you already added in the dashboard are matched by email.
 
-const domain = process.env.SEED_EMAIL_DOMAIN ?? "example.com";
+// Staff sign in by username, so accounts are keyed on the synthetic domain that
+// identity.ts derives. Keep SEED_EMAIL_DOMAIN and AUTH_USERNAME_DOMAIN identical.
+const domain = process.env.SEED_EMAIL_DOMAIN ?? process.env.AUTH_USERNAME_DOMAIN ?? "pos2joy.local";
 // A generated password is printed once. Set SEED_PASSWORD to choose your own.
 const password = process.env.SEED_PASSWORD ?? randomBytes(9).toString("base64url");
 const restaurantName = process.env.SEED_RESTAURANT ?? "The Little Spoon";
@@ -22,13 +24,13 @@ const branchName = process.env.SEED_BRANCH ?? "Main branch";
 // membership is the organisation-wide role; branch is the per-branch assignment.
 // An owner needs no branch row because ownership already grants every branch.
 const staff = [
-  { role: "Owner", email: `owner@${domain}`, membership: "owner" },
-  { role: "Manager", email: `manager@${domain}`, membership: "member", branch: "manager" },
-  { role: "Host", email: `host@${domain}`, membership: "member", branch: "host" },
-  { role: "Server", email: `server@${domain}`, membership: "member", branch: "server" },
-  { role: "Kitchen", email: `kitchen@${domain}`, membership: "member", branch: "kitchen" },
-  { role: "Cashier", email: `cashier@${domain}`, membership: "member", branch: "cashier" },
-];
+  { role: "Owner", username: "owner", membership: "owner" },
+  { role: "Manager", username: "manager", membership: "member", branch: "manager" },
+  { role: "Host", username: "host", membership: "member", branch: "host" },
+  { role: "Server", username: "server", membership: "member", branch: "server" },
+  { role: "Kitchen", username: "kitchen", membership: "member", branch: "kitchen" },
+  { role: "Cashier", username: "cashier", membership: "member", branch: "cashier" },
+].map(person => ({ ...person, email: `${person.username}@${domain}` }));
 
 const dishes = [
   { name: "Pad Thai", category: "Mains", price_cents: 18000, sort_order: 1 },
@@ -130,9 +132,9 @@ try {
   const fresh = logins.filter(person => person.created).length;
   console.log(`\n${restaurantName} · ${branchName}`);
   console.log(`branch ${summary.branchId} · ${summary.menuCount} menu items · floor "Ground floor"\n`);
-  for (const person of logins) console.log(`  ${person.role.padEnd(8)} ${person.email.padEnd(26)} ${person.created ? "new" : "already existed"}`);
+  for (const person of logins) console.log(`  ${person.role.padEnd(8)} username: ${person.username.padEnd(10)} ${person.created ? "new" : "already existed"}`);
   console.log(fresh ? `\nPassword for the ${fresh} new account(s): ${password}` : "\nNo new accounts; existing passwords are unchanged.");
-  console.log("Sign in at /login, then open /workspace.");
+  console.log("Sign in at /login with the username, not the address, then open /workspace.");
   if (fresh) console.log("These are seeded demo logins. Change or remove them before this project serves real customers.");
 } catch (wrapped) {
   if (wrapped instanceof SeedIncomplete) { await sql.end({ timeout: 5 }); process.exit(1); }
