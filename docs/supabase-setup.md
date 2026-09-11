@@ -43,11 +43,18 @@ This command reads `.env` and applies migrations explicitly. Application startup
 npm run db:seed
 ```
 
-Creates one restaurant with a branch, a ground floor, a short menu, and six logins:
+Creates one restaurant with a branch, a ground floor, a short menu, and six staff:
 an owner plus a manager, host, server, kitchen, and cashier, each already assigned
-the matching branch role. Logins are created through the Supabase admin API, so this
-needs `SUPABASE_SECRET_KEY` (the secret/service_role key) in `.env`. That key bypasses
-every access rule: keep it server-side and never give it a `NEXT_PUBLIC_` prefix.
+the matching branch role.
+
+Logins come from Supabase Auth, which owns password hashing, so the seed needs the
+accounts to exist. Either set `SUPABASE_SECRET_KEY` (the secret/service_role key) in
+`.env` and the seed creates any that are missing, or add them yourself under
+Authentication > Users and the seed matches them by email. That key bypasses every
+access rule: keep it server-side and never give it a `NEXT_PUBLIC_` prefix.
+
+Every login is resolved before a single row is written, so a missing account never
+leaves a half-built restaurant behind.
 
 The generated password is printed once, at the end of the run. Set `SEED_PASSWORD` to
 choose your own, and `SEED_RESTAURANT`, `SEED_BRANCH`, or `SEED_EMAIL_DOMAIN` to change

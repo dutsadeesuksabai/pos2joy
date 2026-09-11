@@ -8,12 +8,8 @@ const api = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const secret = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 if (!api) throw new Error("NEXT_PUBLIC_SUPABASE_URL is required");
-if (!secret) {
-  console.error("SUPABASE_SECRET_KEY is required to create staff logins.");
-  console.error("Copy the secret (service_role) key from Project Settings > API keys and add it to .env.");
-  console.error("It bypasses every access rule: keep it server-side and never prefix it with NEXT_PUBLIC_.");
-  process.exit(1);
-}
+// SUPABASE_SECRET_KEY is optional. With it, missing logins are created for you.
+// Without it, logins you already added in the dashboard are matched by email.
 
 const domain = process.env.SEED_EMAIL_DOMAIN ?? "example.com";
 // A generated password is printed once. Set SEED_PASSWORD to choose your own.
@@ -42,26 +38,41 @@ const dishes = [
   { name: "Iced blue latte", category: "Drinks", price_cents: 12000, sort_order: 6 },
 ];
 
+class SeedIncomplete extends Error {}
 const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false, connect_timeout: 15, onnotice: () => {} });
 
 // GoTrue owns password hashing, so logins are created through the admin API and
 // only their IDs are used here. An address that already exists is reused as is.
 async function ensureLogin(email) {
-  const response = await fetch(`${api}/auth/v1/admin/users`, {
-    method: "POST",
-    headers: { apikey: secret, Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, email_confirm: true }),
-  });
-  if (response.ok) return { id: (await response.json()).id, created: true };
+  if (secret) {
+    const response = await fetch(`${api}/auth/v1/admin/users`, {
+      method: "POST",
+      headers: { apikey: secret, Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, email_confirm: true }),
+    });
+    if (response.ok) return { id: (await response.json()).id, created: true };
+  }
   const [existing] = await sql`select id from auth.users where email = ${email} limit 1`;
-  if (existing) return { id: existing.id, created: false };
-  const detail = await response.text();
-  throw new Error(`could not create ${email}: ${response.status} ${detail.slice(0, 160)}`);
+  return existing ? { id: existing.id, created: false } : null;
 }
 
 try {
-  const logins = [];
-  for (const person of staff) logins.push({ ...person, ...await ensureLogin(person.email) });
+  // Resolve every login before writing anything, so a missing account cannot
+  // leave a half-built restaurant behind.
+  const logins = [], missing = [];
+  for (const person of staff) {
+    const login = await ensureLogin(person.email);
+    if (login) logins.push({ ...person, ...login });
+    else missing.push(person.email);
+  }
+  if (missing.length) {
+    console.error(`No login exists yet for:\n${missing.map(email => `  ${email}`).join("\n")}`);
+    console.error("\nEither add SUPABASE_SECRET_KEY (Project Settings > API keys > secret) to .env");
+    console.error("and re-run, which creates them for you, or add them by hand under");
+    console.error("Authentication > Users in the dashboard and re-run. Nothing was written.");
+    process.exitCode = 1;
+    throw new SeedIncomplete();
+  }
 
   const summary = await sql.begin(async tx => {
     const [found] = await tx`select id, organization_id from restaurants where slug = ${slug}`;
@@ -100,6 +111,7 @@ try {
   console.log("Sign in at /login, then open /workspace.");
   if (fresh) console.log("These are seeded demo logins. Change or remove them before this project serves real customers.");
 } catch (wrapped) {
+  if (wrapped instanceof SeedIncomplete) { await sql.end({ timeout: 5 }); process.exit(1); }
   let error = wrapped;
   while (error.cause && !error.code) error = error.cause;
   console.error(`Seeding failed${error.code ? ` [${error.code}]` : ""}: ${error.message}`);
