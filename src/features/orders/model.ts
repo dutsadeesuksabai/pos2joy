@@ -43,3 +43,22 @@ export const orderTotalCents = (lines: { unitPriceCents: number; quantity: numbe
 
 export const formatMoney = (cents: number, currency: string, locale = "en") =>
   new Intl.NumberFormat(locale, { style: "currency", currency }).format(cents / 100);
+
+export const orderStatuses = ["placed", "preparing", "served", "cancelled"] as const;
+export type OrderStatus = typeof orderStatuses[number];
+
+// A ticket moves forward, or is cancelled while nothing has been cooked yet.
+// Re-sending the status a board already shows is a no-op rather than an error,
+// because two people tapping the same ticket is normal in a kitchen.
+const forward: Record<OrderStatus, readonly OrderStatus[]> = {
+  placed: ["preparing", "served", "cancelled"],
+  preparing: ["served", "cancelled"],
+  served: [],
+  cancelled: [],
+};
+
+export function canAdvanceOrder(current: string, next: OrderStatus) {
+  if (current === next) return "unchanged" as const;
+  if (!orderStatuses.includes(current as OrderStatus)) return false;
+  return forward[current as OrderStatus].includes(next);
+}

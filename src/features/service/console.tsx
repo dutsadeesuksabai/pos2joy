@@ -93,10 +93,17 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
         {!table ? <p className="pos-empty">Choose a table to seat guests, take its bill, or show its QR code.</p> : <>
           <div className="side-head"><div><strong>Table {table.label}</strong><span>{table.capacity} seats · {table.state}</span></div></div>
 
-          {(() => { const bill = billFor(table.id); return bill && bill.lines > 0 ? <div className="bill-card">
-            <div className="bill-head"><Receipt size={16}/>Open bill<span>{bill.lines} item{bill.lines > 1 ? "s" : ""}</span></div>
-            <strong>{formatMoney(bill.totalCents, currency)}</strong>
-          </div> : table.state === "occupied" ? <p className="pos-empty small">Seated. No orders on this bill yet.</p> : null; })()}
+          {(() => {
+            const bill = billFor(table.id);
+            const lines = snapshot.items.filter(item => item.tableId === table.id);
+            return bill && lines.length > 0 ? <div className="bill-card">
+              <div className="bill-head"><Receipt size={16}/>Open bill<span>{bill.lines} item{bill.lines > 1 ? "s" : ""}</span></div>
+              <ul className="bill-lines">{lines.map(line => <li key={line.name}>
+                <span>{line.quantity}× {line.name}</span><span>{formatMoney(line.unitPriceCents * line.quantity, currency)}</span>
+              </li>)}</ul>
+              <strong>{formatMoney(bill.totalCents, currency)}</strong>
+            </div> : table.state === "occupied" ? <p className="pos-empty small">Seated. No orders on this bill yet.</p> : null;
+          })()}
 
           <div className="side-actions">
             {table.state === "available" && <>

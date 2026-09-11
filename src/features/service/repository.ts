@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, sql as raw } from "drizzle-orm";
 import { getDatabase } from "@/db";
 import { diningTables, floors, layoutVersions, menuItems, orderItems, orders, queueEntries } from "@/db/schema";
 import { canvasSchema, type FloorCanvas } from "@/features/floor/model";
+import { canAdvanceOrder, type OrderStatus } from "@/features/orders/model";
 
 export class ServiceError extends Error {}
 type Scope = { branchId: string; organizationId: string };
@@ -33,8 +34,16 @@ export async function readService(scope: Scope) {
       .where(and(scopeOf(orders, scope), inArray(orders.status, ["placed", "preparing", "served"])))
       .groupBy(orders.id).orderBy(desc(orders.createdAt));
 
+    // What is actually on each bill, so staff can read it back to the table.
+    const items = open.length ? await tx.select({
+      tableId: orders.tableId, name: orderItems.name, quantity: orderItems.quantity, unitPriceCents: orderItems.unitPriceCents,
+    }).from(orderItems).innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(and(scopeOf(orders, scope), inArray(orders.id, open.map(bill => bill.id))))
+      .orderBy(asc(orderItems.name)) : [];
+
     return {
       rooms: rooms.map(room => ({ id: room.id, name: room.name, canvas: layouts.get(room.id) ?? null })),
+      items,
       tables: tables.map(table => ({ id: table.id, floorId: table.floorId, label: table.label, capacity: table.capacity, accessible: table.accessible, state: table.state })),
       queue: waiting.map(entry => ({ id: entry.id, guestName: entry.guestName, partySize: entry.partySize, status: entry.status, joinedAt: entry.joinedAt.getTime() })),
       bills: open.map(bill => ({ ...bill, createdAt: bill.createdAt.getTime() })),
@@ -98,4 +107,40 @@ export async function setTableState(scope: Scope, tableId: string, state: "avail
 export async function readBranchMenu(scope: Scope) {
   return getDatabase().select({ id: menuItems.id, name: menuItems.name, category: menuItems.category, priceCents: menuItems.priceCents, available: menuItems.available })
     .from(menuItems).where(scopeOf(menuItems, scope)).orderBy(asc(menuItems.sortOrder), asc(menuItems.name));
+}
+
+export type KitchenTicket = Awaited<ReturnType<typeof readKitchen>>[number];
+
+// The kitchen board: every ticket still cooking, oldest first, with its lines.
+export async function readKitchen(scope: Scope) {
+  const rows = await getDatabase().select({
+    id: orders.id, status: orders.status, createdAt: orders.createdAt, tableLabel: diningTables.label,
+    name: orderItems.name, quantity: orderItems.quantity, unitPriceCents: orderItems.unitPriceCents,
+  }).from(orders)
+    .innerJoin(diningTables, eq(diningTables.id, orders.tableId))
+    .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+    .where(and(scopeOf(orders, scope), inArray(orders.status, ["placed", "preparing"])))
+    .orderBy(asc(orders.createdAt), asc(orderItems.name));
+
+  const tickets = new Map<string, { id: string; status: string; tableLabel: string; createdAt: number; lines: { name: string; quantity: number; unitPriceCents: number }[] }>();
+  for (const row of rows) {
+    const ticket = tickets.get(row.id) ?? { id: row.id, status: row.status, tableLabel: row.tableLabel, createdAt: row.createdAt.getTime(), lines: [] };
+    if (row.name) ticket.lines.push({ name: row.name, quantity: row.quantity!, unitPriceCents: row.unitPriceCents! });
+    tickets.set(row.id, ticket);
+  }
+  // A seated table opens an empty bill; that is not a kitchen ticket.
+  return [...tickets.values()].filter(ticket => ticket.lines.length > 0);
+}
+
+export async function advanceOrder(scope: Scope, orderId: string, next: OrderStatus) {
+  return getDatabase().transaction(async tx => {
+    const [order] = await tx.select().from(orders)
+      .where(and(eq(orders.id, orderId), scopeOf(orders, scope))).for("update");
+    if (!order) throw new ServiceError("That order is no longer open.");
+    const allowed = canAdvanceOrder(order.status, next);
+    if (allowed === "unchanged") return { changed: false, status: order.status };
+    if (!allowed) throw new ServiceError(`An order that is ${order.status} cannot become ${next}.`);
+    await tx.update(orders).set({ status: next }).where(eq(orders.id, order.id));
+    return { changed: true, status: next };
+  });
 }

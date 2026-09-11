@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { cartSchema, tableOrderingError, priceCart, orderTotalCents, OrderRejectedError } from "../src/features/orders/model.ts";
+import { cartSchema, tableOrderingError, priceCart, orderTotalCents, canAdvanceOrder, OrderRejectedError } from "../src/features/orders/model.ts";
 
 const padThai = { id: randomUUID(), name: "Pad Thai", priceCents: 18000, available: true };
 const tea = { id: randomUUID(), name: "Iced Tea", priceCents: 6050, available: true };
@@ -42,3 +42,25 @@ test("a removed or sold-out dish rejects the whole order", () => {
 });
 
 test("totals stay exact in minor units", () => assert.equal(orderTotalCents([{ unitPriceCents: 1010, quantity: 3 }]), 3030));
+
+test("a ticket only moves forward", () => {
+  assert.equal(canAdvanceOrder("placed", "preparing"), true);
+  assert.equal(canAdvanceOrder("placed", "served"), true);
+  assert.equal(canAdvanceOrder("preparing", "served"), true);
+  assert.equal(canAdvanceOrder("preparing", "placed"), false);
+  assert.equal(canAdvanceOrder("served", "preparing"), false);
+  assert.equal(canAdvanceOrder("served", "placed"), false);
+});
+
+test("a finished ticket cannot be cancelled, an unstarted one can", () => {
+  assert.equal(canAdvanceOrder("placed", "cancelled"), true);
+  assert.equal(canAdvanceOrder("preparing", "cancelled"), true);
+  assert.equal(canAdvanceOrder("served", "cancelled"), false);
+  assert.equal(canAdvanceOrder("cancelled", "served"), false);
+});
+
+test("re-tapping the status a board already shows is a no-op, junk is refused", () => {
+  for (const status of ["placed", "preparing", "served"]) assert.equal(canAdvanceOrder(status, status), "unchanged");
+  assert.equal(canAdvanceOrder("paid", "served"), false);
+  assert.equal(canAdvanceOrder("", "served"), false);
+});

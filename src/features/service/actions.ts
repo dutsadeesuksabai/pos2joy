@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireBranch } from "@/features/tenancy/queries";
-import { addToQueue, closeBill, seatParty, setTableState, ServiceError } from "./repository";
+import { addToQueue, advanceOrder, closeBill, seatParty, setTableState, ServiceError } from "./repository";
 
 // requireBranch returns the branch as `id`; the repository scopes on `branchId`.
 const scopeOf = (branch: { id: string; organizationId: string }) => ({ branchId: branch.id, organizationId: branch.organizationId });
@@ -63,5 +63,20 @@ export async function markTable(input: unknown): Promise<ServiceResult> {
     const { label } = await setTableState(scopeOf(branch), data.data.tableId, data.data.state);
     revalidatePath(`/workspace/${branch.id}/service`);
     return { ok: true, message: `Table ${label} is now ${data.data.state}.` };
+  } catch (error) { return failure(error); }
+}
+
+const advanceSchema = z.object({ branchId: uuid, orderId: uuid, status: z.enum(["preparing", "served", "cancelled"]) }).strict();
+
+export async function advanceTicket(input: unknown): Promise<ServiceResult> {
+  const data = advanceSchema.safeParse(input);
+  if (!data.success) return { ok: false, error: "Choose a ticket to update." };
+  const branch = await requireBranch(data.data.branchId, "kitchen:manage");
+  try {
+    const result = await advanceOrder(scopeOf(branch), data.data.orderId, data.data.status);
+    revalidatePath(`/workspace/${branch.id}/kitchen`);
+    revalidatePath(`/workspace/${branch.id}/service`);
+    // Someone else already moved it; say so rather than claiming a change.
+    return { ok: true, message: result.changed ? `Ticket marked ${data.data.status}.` : `That ticket was already ${result.status}.` };
   } catch (error) { return failure(error); }
 }

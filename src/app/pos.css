@@ -65,3 +65,26 @@
   .table-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
   .queue-rows button{font-size:11px;padding:0 10px}
 }
+
+.bill-lines{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;border-top:1px solid #e3ecf7;padding-top:10px}
+.bill-lines li{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:#4a6b8f}
+
+/* Kitchen board. Tickets are read across a room, so they stay large. */
+.kitchen{margin-top:18px}
+.kitchen .pos-empty{background:#fff;border:1px solid var(--border);border-radius:18px;padding:48px 20px;color:var(--muted)}
+.kitchen .pos-empty svg{color:#b7c6d8}
+.ticket-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:13px}
+.ticket{background:#fff;border:1px solid var(--border);border-left:5px solid #9cc6de;border-radius:15px;padding:14px;display:flex;flex-direction:column;gap:11px}
+.ticket.preparing{border-left-color:#e0a94a;background:#fffdf7}
+.ticket.late{border-left-color:#cf5a52}
+.ticket header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ticket header strong{font-size:19px;color:var(--deep);letter-spacing:-.4px}
+.ticket header span{display:flex;align-items:center;gap:5px;font-size:12px;color:#7b8da3}
+.ticket .late-clock{color:#c04a42;font-weight:700}
+.ticket ul{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.ticket li{display:flex;gap:9px;align-items:baseline;font-size:15px;color:#2f4763;line-height:1.4}
+.ticket li b{font-size:16px;color:var(--primary);min-width:26px}
+.ticket footer{display:flex;gap:7px;margin-top:auto;padding-top:4px}
+.ticket footer button:first-child{flex:1;min-height:46px;font-size:13px}
+.ticket footer button:last-child{min-height:46px;min-width:46px;padding:0;color:#a9564f!important}
+@media(max-width:520px){.ticket-grid{grid-template-columns:1fr}}
