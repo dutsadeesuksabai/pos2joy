@@ -4,12 +4,14 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChefHat, Clock3, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { translate, type Locale } from "@/i18n/dictionary";
 import { advanceTicket } from "./actions";
 import type { KitchenTicket } from "./repository";
 
-type Props = { branchId: string; tickets: KitchenTicket[] };
+type Props = { branchId: string; tickets: KitchenTicket[]; locale: Locale };
 
-export function KitchenBoard({ branchId, tickets }: Props) {
+export function KitchenBoard({ branchId, tickets, locale }: Props) {
+  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -30,7 +32,7 @@ export function KitchenBoard({ branchId, tickets }: Props) {
         setIsError(!result.ok);
         setMessage(result.ok ? result.message : result.error);
         if (result.ok) router.refresh();
-      } catch { setIsError(true); setMessage("Connection lost. Refresh."); }
+      } catch { setIsError(true); setMessage(t("staff.connectionLost")); }
     });
   }
 
@@ -40,19 +42,19 @@ export function KitchenBoard({ branchId, tickets }: Props) {
     {message && <div className={`pos-message ${isError ? "error" : ""}`} role={isError ? "alert" : "status"}><span>{message}</span><button aria-label="Dismiss" onClick={() => setMessage("")}><X size={16}/></button></div>}
 
     {tickets.length === 0
-      ? <p className="pos-empty"><ChefHat size={30}/><br/>No tickets.</p>
+      ? <p className="pos-empty"><ChefHat size={30}/><br/>{t("staff.noTickets")}</p>
       : <div className="ticket-grid">{tickets.map(ticket => {
           const minutes = waited(ticket.createdAt);
           return <article key={ticket.id} className={`ticket ${ticket.status} ${minutes >= 20 ? "late" : ""}`}>
             <header>
-              <strong>Table {ticket.tableLabel}</strong>
-              <span className={minutes >= 20 ? "late-clock" : ""}><Clock3 size={13}/>{minutes} min</span>
+              <strong>{t("staff.table")} {ticket.tableLabel}</strong>
+              <span className={minutes >= 20 ? "late-clock" : ""}><Clock3 size={13}/>{minutes} {t("staff.min")}</span>
             </header>
             <ul>{ticket.lines.map(line => <li key={line.name}><b>{line.quantity}×</b><span>{line.name}</span></li>)}</ul>
             <footer>
               {ticket.status === "placed"
-                ? <Button disabled={pending} onClick={() => move(ticket.id, "preparing")}><ChefHat/>Start</Button>
-                : <Button disabled={pending} onClick={() => move(ticket.id, "served")}><Check/>Served</Button>}
+                ? <Button disabled={pending} onClick={() => move(ticket.id, "preparing")}><ChefHat/>{t("staff.start")}</Button>
+                : <Button disabled={pending} onClick={() => move(ticket.id, "served")}><Check/>{t("staff.served")}</Button>}
               <Button variant="ghost" disabled={pending} onClick={() => move(ticket.id, "cancelled")} aria-label={`Cancel the ticket for table ${ticket.tableLabel}`}><X/></Button>
             </footer>
           </article>;

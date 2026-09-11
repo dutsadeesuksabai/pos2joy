@@ -8,7 +8,7 @@ const permissions: Record<BranchRole, readonly Permission[]> = {
   host: ["branch:read", "queue:manage"],
   server: ["branch:read", "orders:serve"],
   kitchen: ["branch:read", "kitchen:manage"],
-  cashier: ["branch:read", "billing:manage"],
+  cashier: ["branch:read", "queue:manage", "billing:manage"],
 };
 
 export function hasPermission(role: string, permission: Permission) {

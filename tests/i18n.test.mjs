@@ -43,3 +43,15 @@ test("an unsupported language falls back without throwing", () => {
 test("every locale has a display name", () => {
   for (const locale of locales) assert.ok(localeNames[locale]?.length);
 });
+
+test("the staff vocabulary is complete in all three languages", () => {
+  const keys = ["staff.seat", "staff.call", "staff.closeBill", "staff.kitchen", "staff.noTickets", "staff.printSlip", "staff.signOut"];
+  for (const locale of locales) for (const key of keys) {
+    const value = translate(locale, key);
+    assert.ok(value && value !== key, `${locale}/${key} missing`);
+  }
+  for (const key of keys) {
+    assert.notEqual(translate("th", key), translate("en", key), `th/${key} untranslated`);
+    assert.notEqual(translate("zh", key), translate("en", key), `zh/${key} untranslated`);
+  }
+});

@@ -12,4 +12,19 @@ test("revoked membership denies access despite an old assignment", () => assert.
 test("malformed or cross-tenant staff assignments fail closed", () => { for (const role of ["owner", "admin", "toString", "__proto__"]) assert.equal(resolveBranchRole("user-a", branch, membership, { ...assignment, role }), null); assert.equal(resolveBranchRole("user-a", branch, membership, { ...assignment, organizationId: "org-b" }), null); });
 test("host can manage a queue but cannot edit the floor or manage billing", () => { assert.equal(hasPermission("host", "queue:manage"), true); assert.equal(hasPermission("host", "floor:edit"), false); assert.equal(hasPermission("host", "billing:manage"), false); });
 test("kitchen and cashier permissions stay separate", () => { assert.equal(hasPermission("kitchen", "kitchen:manage"), true); assert.equal(hasPermission("kitchen", "billing:manage"), false); assert.equal(hasPermission("cashier", "billing:manage"), true); assert.equal(hasPermission("cashier", "kitchen:manage"), false); });
+test("assigned cashiers can manage Fair Queue and billing without floor or team access", () => {
+  const role = resolveBranchRole("user-a", branch, membership, { ...assignment, role: "cashier" });
+  assert.equal(role, "cashier");
+  assert.equal(hasPermission(role, "queue:manage"), true);
+  assert.equal(hasPermission(role, "billing:manage"), true);
+  assert.equal(hasPermission(role, "floor:edit"), false);
+  assert.equal(hasPermission(role, "team:manage"), false);
+});
+test("cashier queue access still requires membership and assignment to the requested branch", () => {
+  const cashier = { ...assignment, role: "cashier" };
+  assert.equal(resolveBranchRole("user-a", branch, undefined, cashier), null);
+  assert.equal(resolveBranchRole("user-a", branch, membership), null);
+  assert.equal(resolveBranchRole("user-a", { ...branch, id: "branch-b" }, membership, cashier), null);
+  assert.equal(resolveBranchRole("user-a", { ...branch, organizationId: "org-b" }, membership, cashier), null);
+});
 test("unknown roles never grant permissions", () => { for (const role of ["", "admin", "constructor", "toString", "__proto__"]) assert.equal(hasPermission(role, "branch:read"), false); });
