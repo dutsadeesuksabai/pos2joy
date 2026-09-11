@@ -6,6 +6,7 @@ import { branches, branchStaff, diningTables, floors, layoutVersions, membership
 import { canSeat, planSeating, type QueueParty, type ServiceTable } from "@/features/queue/recommend";
 import { hasPermission, resolveBranchRole } from "@/features/tenancy/permissions";
 import { canvasSchema, type FloorCanvas } from "@/features/floor/model";
+import { serviceDayIn } from "@/features/queue/ticket";
 import { canAdvanceOrder, type OrderStatus } from "@/features/orders/model";
 
 export class ServiceError extends Error {}
@@ -25,6 +26,7 @@ async function lockQueueHost(tx: Transaction, actor: QueueActor) {
   const [assignment] = await tx.select().from(branchStaff).where(and(eq(branchStaff.branchId, actor.branchId), eq(branchStaff.organizationId, actor.organizationId), eq(branchStaff.userId, actor.userId))).for("share");
   const role = resolveBranchRole(actor.userId, branch, membership, assignment);
   if (!role || !hasPermission(role, "queue:manage")) throw new ServiceError("Your queue access has changed. Refresh and contact the restaurant owner.");
+  return branch;
 }
 
 const asParty = (entry: typeof queueEntries.$inferSelect): QueueParty => ({ id: entry.id, name: entry.guestName, size: entry.partySize, joinedAt: entry.joinedAt.getTime(), status: entry.status, needsAccessible: entry.needsAccessible, requestedFloorId: entry.requestedFloorId });
@@ -68,7 +70,7 @@ export async function readService(scope: Scope) {
       rooms: rooms.map(room => ({ id: room.id, name: room.name, canvas: layouts.get(room.id) ?? null })),
       items,
       tables: tables.map(table => ({ id: table.id, floorId: table.floorId, label: table.label, capacity: table.capacity, accessible: table.accessible, state: table.state })),
-      queue: waiting.map(({ entry, calledTableLabel }) => ({ id: entry.id, guestName: entry.guestName, partySize: entry.partySize, status: entry.status, joinedAt: entry.joinedAt.getTime(), needsAccessible: entry.needsAccessible, requestedFloorId: entry.requestedFloorId, calledTableLabel })),
+      queue: waiting.map(({ entry, calledTableLabel }) => ({ id: entry.id, ticketNo: entry.ticketNo, guestName: entry.guestName, partySize: entry.partySize, status: entry.status, joinedAt: entry.joinedAt.getTime(), needsAccessible: entry.needsAccessible, requestedFloorId: entry.requestedFloorId, calledTableLabel })),
       bills: open.map(bill => ({ ...bill, createdAt: bill.createdAt.getTime() })),
     };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
@@ -76,12 +78,18 @@ export async function readService(scope: Scope) {
 
 export async function addToQueue(actor: QueueActor, guestName: string, partySize: number, needsAccessible: boolean, requestedFloorId: string | null) {
   return getDatabase().transaction(async tx => {
-    await lockQueueHost(tx, actor);
+    const branch = await lockQueueHost(tx, actor);
     if (requestedFloorId) {
       const [floor] = await tx.select({ id: floors.id }).from(floors).where(and(eq(floors.id, requestedFloorId), scopeOf(floors, actor)));
       if (!floor) throw new ServiceError("Choose a seating area in this branch.");
     }
-    const [entry] = await tx.insert(queueEntries).values({ branchId: actor.branchId, organizationId: actor.organizationId, guestName, partySize, needsAccessible, requestedFloorId }).returning({ id: queueEntries.id });
+    // The branch row is already locked, so max + 1 cannot race another host.
+    const serviceDay = serviceDayIn(branch.timezone);
+    const [last] = await tx.select({ highest: raw<number | null>`max(${queueEntries.ticketNo})` })
+      .from(queueEntries).where(and(scopeOf(queueEntries, actor), eq(queueEntries.serviceDay, serviceDay)));
+    const ticketNo = (last?.highest ?? 0) + 1;
+    const [entry] = await tx.insert(queueEntries).values({ branchId: actor.branchId, organizationId: actor.organizationId, guestName, partySize, needsAccessible, requestedFloorId, serviceDay, ticketNo })
+      .returning({ id: queueEntries.id, ticketNo: queueEntries.ticketNo });
     return entry;
   });
 }
@@ -244,7 +252,7 @@ export async function releaseCall(actor: QueueActor, entryId: string) {
 // shows: who is called, to which table, and who is still waiting.
 export async function readCallBoard(scope: Scope) {
   const rows = await getDatabase().select({
-    id: queueEntries.id, guestName: queueEntries.guestName, partySize: queueEntries.partySize,
+    id: queueEntries.id, guestName: queueEntries.guestName, partySize: queueEntries.partySize, ticketNo: queueEntries.ticketNo,
     status: queueEntries.status, joinedAt: queueEntries.joinedAt, calledAt: queueEntries.calledAt,
     tableLabel: diningTables.label,
   }).from(queueEntries)
@@ -254,9 +262,9 @@ export async function readCallBoard(scope: Scope) {
 
   return {
     called: rows.filter(row => row.status === "offered")
-      .map(row => ({ id: row.id, guestName: row.guestName, partySize: row.partySize, tableLabel: row.tableLabel, calledAt: row.calledAt?.getTime() ?? 0 }))
+      .map(row => ({ id: row.id, guestName: row.guestName, partySize: row.partySize, ticketNo: row.ticketNo, tableLabel: row.tableLabel, calledAt: row.calledAt?.getTime() ?? 0 }))
       .sort((a, b) => b.calledAt - a.calledAt),
     waiting: rows.filter(row => row.status === "waiting")
-      .map(row => ({ id: row.id, guestName: row.guestName, partySize: row.partySize })),
+      .map(row => ({ id: row.id, guestName: row.guestName, partySize: row.partySize, ticketNo: row.ticketNo })),
   };
 }

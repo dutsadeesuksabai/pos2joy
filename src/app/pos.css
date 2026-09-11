@@ -128,3 +128,10 @@
 .call-waiting li b{margin-left:auto;color:#8fd2f4;font-weight:400;font-size:clamp(12px,1.2vw,16px)}
 .call-empty{color:#89a9cc;font-size:clamp(13px,1.4vw,17px)}
 @media(min-width:900px){.call-lists{grid-template-columns:1fr 1fr}}
+
+.queue-no{background:#eef3f9;border-radius:7px;padding:4px 8px;font-size:11px;font-weight:700;color:var(--primary);letter-spacing:.4px;min-width:auto}
+.call-name{font-size:clamp(14px,1.8vw,24px);color:#c3dcf6;margin-top:clamp(4px,.6vw,10px)}
+.call-table{margin-top:clamp(10px,1.4vw,22px)}
+.call-ticket{background:#ffffff1f;border-radius:8px;padding:4px 10px;font-weight:700;color:#8fd2f4;font-size:clamp(13px,1.4vw,18px);margin-right:12px}
+.call-ready li>span:nth-child(2){flex:1}
+.call-waiting .call-no{min-width:54px;font-weight:700;color:#8fd2f4}

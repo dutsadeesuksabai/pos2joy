@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ticketLabel } from "@/features/queue/ticket";
 import type { readCallBoard } from "./repository";
 
 type Board = Awaited<ReturnType<typeof readCallBoard>>;
@@ -22,9 +23,9 @@ export function CallDisplay({ restaurant, branch, board }: { restaurant: string;
 
     {latest ? <section className="call-now" aria-live="polite">
       <span className="call-label">NOW CALLING</span>
-      <h1>{latest.guestName}</h1>
+      <h1>{ticketLabel(latest.ticketNo) || latest.guestName}</h1>
+      <p className="call-name">{latest.guestName} · {latest.partySize} guests</p>
       <p className="call-table">TABLE <b>{latest.tableLabel ?? "—"}</b></p>
-      <span className="call-party">{latest.partySize} guests</span>
     </section> : <section className="call-now idle">
       <h1>Welcome</h1>
       <p>Please see a member of staff to join the queue.</p>
@@ -34,7 +35,7 @@ export function CallDisplay({ restaurant, branch, board }: { restaurant: string;
       {earlier.length > 0 && <section>
         <h2>Also ready</h2>
         <ul className="call-ready">{earlier.map(entry =>
-          <li key={entry.id}><span>{entry.guestName}</span><b>{entry.tableLabel ?? "—"}</b></li>)}</ul>
+          <li key={entry.id}><span className="call-ticket">{ticketLabel(entry.ticketNo)}</span><span>{entry.guestName}</span><b>{entry.tableLabel ?? "—"}</b></li>)}</ul>
       </section>}
 
       <section>
@@ -42,7 +43,7 @@ export function CallDisplay({ restaurant, branch, board }: { restaurant: string;
         {board.waiting.length === 0
           ? <p className="call-empty">Nobody waiting</p>
           : <ol className="call-waiting">{board.waiting.slice(0, 10).map((entry, index) =>
-              <li key={entry.id}><span className="call-no">{index + 1}</span>{entry.guestName}<b>{entry.partySize}</b></li>)}</ol>}
+              <li key={entry.id}><span className="call-no">{ticketLabel(entry.ticketNo)}</span>{entry.guestName}<b>{entry.partySize}</b></li>)}</ol>}
       </section>
     </div>
   </main>;

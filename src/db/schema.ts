@@ -1,6 +1,6 @@
 // Core schema; generate and review migrations before use. All tables deny client
 // access through RLS. Server queries must verify identity and tenant permissions.
-import { pgTable, uuid, text, integer, timestamp, unique, foreignKey, jsonb, check, uniqueIndex, boolean } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, timestamp, unique, foreignKey, jsonb, check, uniqueIndex, boolean, date } from "drizzle-orm/pg-core";
 import type { FloorCanvas } from "../features/floor/model";
 import { sql } from "drizzle-orm";
 
@@ -76,11 +76,17 @@ export const queueEntries = pgTable("queue_entries", {
   seatedAt: timestamp("seated_at", { withTimezone: true }),
   seatedBy: uuid("seated_by"),
   seatingReason: text("seating_reason"),
+  // Queue numbers restart each service day, which is the branch calendar day.
+  // Unique per day, so two hosts adding at once cannot share a number.
+  serviceDay: date("service_day").notNull(),
+  ticketNo: integer("ticket_no").notNull(),
   // Calling a party holds a table for them and puts them on the call display.
   calledAt: timestamp("called_at", { withTimezone: true }),
   calledTableId: uuid("called_table_id"),
 }, t => [
   unique().on(t.id, t.branchId, t.organizationId),
+  unique().on(t.branchId, t.serviceDay, t.ticketNo),
+  check("ticket_no_positive", sql`${t.ticketNo} > 0`),
   check("party_size_positive", sql`${t.partySize} > 0`), check("queue_status_valid", sql`${t.status} in ('waiting', 'offered', 'seated', 'cancelled', 'no_show')`),
   foreignKey({ columns: [t.branchId, t.organizationId], foreignColumns: [branches.id, branches.organizationId] }),
   foreignKey({ name: "queue_requested_floor_tenant_fk", columns: [t.requestedFloorId, t.branchId, t.organizationId], foreignColumns: [floors.id, floors.branchId, floors.organizationId] }),

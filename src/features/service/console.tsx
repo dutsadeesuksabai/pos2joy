@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Armchair, BellRing, Check, Clock3, QrCode, Receipt, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/features/orders/model";
+import { ticketLabel } from "@/features/queue/ticket";
 import { recommend } from "@/features/queue/recommend";
 import { callQueue, cancelCall, closeTable, joinQueue, markTable, seatTable } from "./actions";
 import type { ServiceSnapshot } from "./repository";
@@ -84,8 +85,8 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
           <a className="call-link" href={`/call/${branchId}`} target="_blank" rel="noreferrer"><BellRing size={14}/>Open the call display for the guest screen</a>
           {snapshot.queue.length === 0
             ? <p className="pos-empty">Nobody waiting.</p>
-            : <ul className="queue-rows">{snapshot.queue.map((entry, index) => <li key={entry.id}>
-                <span className="queue-no">{String(index + 1).padStart(2, "0")}</span>
+            : <ul className="queue-rows">{snapshot.queue.map(entry => <li key={entry.id}>
+                <span className="queue-no">{ticketLabel(entry.ticketNo)}</span>
                 <div><strong>{entry.guestName}</strong><span><Users size={13}/>{entry.partySize} · <Clock3 size={13}/>{waited(entry.joinedAt)} min</span></div>
                 {entry.status === "offered"
                   ? <div className="queue-called">
