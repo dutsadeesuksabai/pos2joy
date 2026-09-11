@@ -1,0 +1,23 @@
+/* 58mm thermal roll. The paper block is the only thing that prints. */
+.slip{padding:20px;display:grid;justify-items:center;gap:16px;background:#eef2f7;min-height:100vh}
+.slip-paper{width:58mm;background:#fff;padding:6mm 4mm;text-align:center;font-family:"Helvetica Neue",Arial,sans-serif;color:#000}
+.slip-shop{font-size:13pt;font-weight:700;line-height:1.25}
+.slip-branch{font-size:8pt;margin-top:1mm}
+.slip-rule{border-top:1px dashed #000;margin:3mm 0}
+.slip-kind{font-size:8pt;letter-spacing:2px}
+/* The number is the whole point of the slip. */
+.slip-no{font-size:34pt;font-weight:700;line-height:1;margin:2mm 0 3mm}
+.slip-meta{font-size:9pt;line-height:1.6}
+.slip-qr{margin:3mm auto 2mm;width:34mm}
+.slip-qr svg{width:100%;height:auto;display:block}
+.slip-scan{font-size:8pt;line-height:1.4}
+.slip-url{font-size:6pt;word-break:break-all;margin-top:1.5mm;color:#333}
+.slip-keep{font-size:7pt;margin-top:3mm}
+.slip-print{border:0;background:var(--primary);color:#fff;border-radius:10px;min-height:46px;padding:0 22px;font-size:14px}
+@media print{
+  /* Thermal rolls are continuous: fixed height would eject a blank page. */
+  @page{size:58mm auto;margin:0}
+  .slip{padding:0;background:#fff;min-height:0;display:block}
+  .slip-paper{width:auto;padding:2mm 3mm}
+  .slip-print{display:none}
+}

@@ -4,24 +4,28 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCheck, Minus, Plus, ShoppingBag, Utensils, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { translate, type Locale } from "@/i18n/dictionary";
+import { LocaleSwitch } from "@/i18n/locale-switch";
 import { formatMoney, orderTotalCents } from "./model";
 import { placeOrder } from "./actions";
 
 type Item = { id: string; name: string; category: string; priceCents: number; available: boolean };
 type Placed = { name: string; quantity: number; unitPriceCents: number; status: string };
-type Props = { tableId: string; label: string; restaurant: string; currency: string; menu: Item[]; placed: Placed[]; blocked: string | null };
+type Props = { tableId: string; label: string; restaurant: string; currency: string; menu: Item[]; placed: Placed[]; blocked: string | null; locale: Locale };
 
-export function GuestMenu({ tableId, label, restaurant, currency, menu, placed, blocked }: Props) {
+export function GuestMenu({ tableId, label, restaurant, currency, menu, placed, blocked, locale }: Props) {
+  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   const router = useRouter();
   const [cart, setCart] = useState<Record<string, number>>({});
-  const [category, setCategory] = useState("All");
+  const [category, setCategory] = useState("");
   const [showCart, setShowCart] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const categories = useMemo(() => ["All", ...new Set(menu.map(item => item.category))], [menu]);
-  const shown = menu.filter(item => category === "All" || item.category === category);
+  const all = t("guest.all");
+  const categories = useMemo(() => [all, ...new Set(menu.map(item => item.category))], [menu, all]);
+  const shown = menu.filter(item => !category || category === all || item.category === category);
   const lines = menu.filter(item => cart[item.id] > 0).map(item => ({ ...item, quantity: cart[item.id] }));
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
   const total = orderTotalCents(lines.map(line => ({ unitPriceCents: line.priceCents, quantity: line.quantity })));
@@ -51,23 +55,23 @@ export function GuestMenu({ tableId, label, restaurant, currency, menu, placed, 
 
   return <main className="guest">
     <header className="guest-top">
-      <div><strong>{restaurant}</strong><span>Table {label}</span></div>
-      <Utensils size={20}/>
+      <div><strong>{restaurant}</strong><span>{t("guest.table")} {label}</span></div>
+      <LocaleSwitch current={locale}/>
     </header>
 
-    {blocked ? <div className="guest-blocked"><h1>Welcome!</h1><p>{blocked}</p></div> : <>
+    {blocked ? <div className="guest-blocked"><h1>{t("guest.welcome")}</h1><p>{t(blocked as Parameters<typeof translate>[1])}</p></div> : <>
       {message && <div className={`guest-message ${isError ? "error" : ""}`} role={isError ? "alert" : "status"}><span>{message}</span><button aria-label="Dismiss" onClick={() => setMessage("")}><X size={15}/></button></div>}
 
       {placed.length > 0 && <section className="guest-bill">
-        <h2>Already ordered</h2>
+        <h2>{t("guest.alreadyOrdered")}</h2>
         <ul>{placed.map(line => <li key={line.name}><span>{line.quantity}× {line.name}</span><span>{money(line.unitPriceCents * line.quantity)}</span></li>)}</ul>
-        <div className="guest-bill-total"><span>Bill so far</span><strong>{money(billTotal)}</strong></div>
+        <div className="guest-bill-total"><span>{t("guest.billSoFar")}</span><strong>{money(billTotal)}</strong></div>
       </section>}
 
       {showCart ? <section className="guest-cart-view">
-        <button className="guest-back" onClick={() => setShowCart(false)}>← Back to menu</button>
-        <h1>Your order</h1>
-        {lines.length === 0 ? <p className="guest-empty">Nothing added yet.</p> : <ul className="guest-lines">
+        <button className="guest-back" onClick={() => setShowCart(false)}>{t("guest.backToMenu")}</button>
+        <h1>{t("guest.yourOrder")}</h1>
+        {lines.length === 0 ? <p className="guest-empty">{t("guest.nothingAdded")}</p> : <ul className="guest-lines">
           {lines.map(line => <li key={line.id}>
             <div><strong>{line.name}</strong><span>{money(line.priceCents)}</span></div>
             <div className="stepper">
@@ -77,12 +81,12 @@ export function GuestMenu({ tableId, label, restaurant, currency, menu, placed, 
             </div>
           </li>)}
         </ul>}
-        <div className="guest-total"><span>Total</span><strong>{money(total)}</strong></div>
-        <Button className="w-full" disabled={!count || pending} onClick={submit}>{pending ? "Sending…" : "Send to the kitchen"}<ArrowRight/></Button>
+        <div className="guest-total"><span>{t("guest.total")}</span><strong>{money(total)}</strong></div>
+        <Button className="w-full" disabled={!count || pending} onClick={submit}>{pending ? t("guest.sending") : t("guest.send")}<ArrowRight/></Button>
       </section> : <>
-        {menu.length === 0 ? <p className="guest-empty">The menu isn’t ready yet. Please ask a member of staff.</p> : <>
+        {menu.length === 0 ? <p className="guest-empty">{t("guest.menuNotReady")}</p> : <>
           {categories.length > 2 && <nav className="guest-cats" aria-label="Menu categories">{categories.map(name =>
-            <button key={name} aria-pressed={category === name} className={category === name ? "active" : ""} onClick={() => setCategory(name)}>{name}</button>)}</nav>}
+            <button key={name} aria-pressed={category === name || (!category && name === all)} className={category === name || (!category && name === all) ? "active" : ""} onClick={() => setCategory(name)}>{name}</button>)}</nav>}
           <ul className="guest-menu">{shown.map(item => <li key={item.id}>
             <div><strong>{item.name}</strong><span>{money(item.priceCents)}</span></div>
             {cart[item.id] ? <div className="stepper">
@@ -95,10 +99,10 @@ export function GuestMenu({ tableId, label, restaurant, currency, menu, placed, 
       </>}
 
       {count > 0 && !showCart && <button className="guest-bar" onClick={() => setShowCart(true)}>
-        <ShoppingBag size={18}/><span>{count} item{count > 1 ? "s" : ""}</span><strong>{money(total)}</strong><ArrowRight size={18}/>
+        <ShoppingBag size={18}/><span>{count} {count > 1 ? t("guest.items") : t("guest.item")}</span><strong>{money(total)}</strong><ArrowRight size={18}/>
       </button>}
 
-      {!isError && message && !count && <p className="guest-thanks"><CheckCheck size={16}/>Thank you! Your order is with the kitchen.</p>}
+      {!isError && message && !count && <p className="guest-thanks"><CheckCheck size={16}/>{t("guest.thanks")}</p>}
     </>}
   </main>;
 }

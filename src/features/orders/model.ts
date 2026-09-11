@@ -21,8 +21,8 @@ export type MenuItem = { id: string; name: string; priceCents: number; available
 // nothing until staff seat that table, so no separate token table or expiry job.
 // Swap in per-visit tokens if guests ever need to order before being seated.
 export function tableOrderingError(table: OrderableTable | undefined) {
-  if (!table || !table.enabled) return "This table isn’t taking orders. Please ask a member of staff.";
-  if (table.state !== "occupied") return "Please ask a member of staff to seat you, then scan again.";
+  if (!table || !table.enabled) return "guest.needStaff";
+  if (table.state !== "occupied") return "guest.needSeating";
   return null;
 }
 

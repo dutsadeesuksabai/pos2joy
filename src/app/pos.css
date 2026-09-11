@@ -136,3 +136,32 @@
 .call-ready li>span:nth-child(2){flex:1}
 .call-waiting .call-no{min-width:54px;font-weight:700;color:#8fd2f4}
 .pos-fix{display:inline-block;margin-top:10px;color:var(--primary);font-weight:700;font-size:13px}
+
+/* Language picker, shared by every guest-facing screen. */
+.locale-switch{display:flex;gap:3px;background:#ffffff1a;border-radius:9px;padding:3px;flex-shrink:0}
+.locale-switch button{border:0;background:none;color:inherit;opacity:.6;font-size:12px;min-height:32px;padding:0 10px;border-radius:7px}
+.locale-switch button[aria-pressed=true]{background:#fff;color:var(--primary);opacity:1;font-weight:700}
+.guest-top .locale-switch{background:#eef3f9}
+.guest-top .locale-switch button{color:#4a627f}
+.call-screen header{justify-content:space-between}
+
+/* Printing a slip is the queue number itself, so the number is the button. */
+button.queue-no{border:0;display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+button.queue-no:hover{background:#dfe9f5}
+
+/* Guest queue ticket. */
+.qticket{max-width:440px;margin:0 auto;padding:0 16px 40px;min-height:100vh}
+.qticket header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 2px 16px;border-bottom:1px solid var(--border)}
+.qticket header strong{font-size:17px;color:var(--deep);display:block}
+.qticket header span{font-size:12px;color:var(--muted);display:block;margin-top:3px}
+.qticket-card{background:var(--deep);color:#fff;border-radius:20px;padding:28px 20px;text-align:center;margin-top:20px}
+.qticket-card.offered{background:#1b6b4a}
+.qticket-label{font-size:11px;letter-spacing:2px;color:#a9cdf0}
+.qticket-no{display:block;font-size:clamp(48px,16vw,76px);line-height:1.05;margin:8px 0 4px;letter-spacing:-2px}
+.qticket-party{font-size:13px;color:#c3dcf6}
+.qticket-state{text-align:center;padding:26px 12px}
+.qticket-state h1{font-size:24px;color:var(--deep);letter-spacing:-.6px}
+.qticket-state p{font-size:15px;color:var(--muted);margin-top:10px;line-height:1.7}
+.qticket-state.ready h1{color:#1b6b4a}
+.qticket-state.ready b{font-size:34px;color:var(--deep);display:block;margin-top:8px}
+.qticket-foot{text-align:center;font-size:11px;color:#93a3b7}

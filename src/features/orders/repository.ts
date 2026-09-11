@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq, inArray, sql as raw } from "drizzle-orm";
 import { getDatabase } from "@/db";
 import { branches, diningTables, menuItems, orderItems, orders, restaurants } from "@/db/schema";
+import { translate } from "@/i18n/dictionary";
 import { OrderRejectedError, priceCart, tableOrderingError, type Cart } from "./model";
 
 // A guest arrives holding nothing but the table ID printed on their QR code, so
@@ -44,7 +45,8 @@ export async function placeGuestOrder(tableId: string, cart: Cart) {
   return getDatabase().transaction(async tx => {
     const [table] = await tx.select().from(diningTables).where(eq(diningTables.id, tableId)).for("update");
     const blocked = tableOrderingError(table);
-    if (blocked) throw new OrderRejectedError(blocked);
+    // Staff-facing path: translate the key for the message the server returns.
+    if (blocked) throw new OrderRejectedError(translate("en", blocked));
     const scope = { branchId: table.branchId, organizationId: table.organizationId };
 
     const ids = cart.items.map(line => line.menuItemId);

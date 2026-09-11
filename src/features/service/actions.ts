@@ -9,7 +9,7 @@ import { addToQueue, advanceOrder, callParty, closeBill, releaseCall, seatParty,
 // requireBranch returns the branch as `id`; the repository scopes on `branchId`.
 const scopeOf = (branch: { id: string; organizationId: string }) => ({ branchId: branch.id, organizationId: branch.organizationId });
 
-export type ServiceResult = { ok: true; message: string } | { ok: false; error: string };
+export type ServiceResult = { ok: true; message: string; entryId?: string } | { ok: false; error: string };
 
 const uuid = z.string().uuid();
 const joinSchema = z.object({ branchId: uuid, guestName: z.string().trim().min(1).max(60), partySize: z.number().int().min(1).max(30), needsAccessible: z.boolean().default(false), requestedFloorId: uuid.nullable().default(null) }).strict();
@@ -29,9 +29,9 @@ export async function joinQueue(input: unknown): Promise<ServiceResult> {
   const branch = await requireBranch(data.data.branchId, "queue:manage");
   const user = await requireUser();
   try {
-    await addToQueue({ ...scopeOf(branch), userId: user.id }, data.data.guestName, data.data.partySize, data.data.needsAccessible, data.data.requestedFloorId);
+    const entry = await addToQueue({ ...scopeOf(branch), userId: user.id }, data.data.guestName, data.data.partySize, data.data.needsAccessible, data.data.requestedFloorId);
     revalidatePath(`/workspace/${branch.id}/service`);
-    return { ok: true, message: `${data.data.guestName} added.` };
+    return { ok: true, message: `${data.data.guestName} added.`, entryId: entry.id };
   } catch (error) { return failure(error); }
 }
 

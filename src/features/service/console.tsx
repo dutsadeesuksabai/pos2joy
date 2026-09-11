@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Armchair, BellRing, Check, Clock3, QrCode, Receipt, Users, X } from "lucide-react";
+import { Armchair, BellRing, Check, Clock3, Printer, QrCode, Receipt, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/features/orders/model";
 import { ticketLabel } from "@/features/queue/ticket";
@@ -37,7 +37,7 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, 
   const queueParties = snapshot.queue.map(entry => ({ id: entry.id, name: entry.guestName, size: entry.partySize, joinedAt: entry.joinedAt, status: entry.status, needsAccessible: entry.needsAccessible, requestedFloorId: entry.requestedFloorId }));
   const matches = planSeating(serviceTables, queueParties, now).filter(match => match.table.id === table?.id);
 
-  function run(work: () => Promise<{ ok: true; message: string } | { ok: false; error: string }>) {
+  function run(work: () => Promise<{ ok: true; message: string; entryId?: string } | { ok: false; error: string }>) {
     startTransition(async () => {
       try {
         const result = await work();
@@ -55,6 +55,8 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, 
     const party = queueParties.find(item => item.id === entryId);
     return party ? serviceTables.filter(item => canSeat(item, party)).sort((a, b) => a.capacity - b.capacity)[0] : undefined;
   };
+  // A slip prints from its own window so the receipt page size applies.
+  const printSlip = (entryId: string) => window.open(`/workspace/${branchId}/slip/${entryId}`, "_blank", "width=420,height=640");
   const calledTable = (entryId: string) => snapshot.queue.find(entry => entry.id === entryId)?.calledTableLabel ?? null;
 
   return <section className="pos">
@@ -80,7 +82,7 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, 
                 </button>;
               })}</div>}
         </> : <>
-          <form className="queue-form" onSubmit={event => { event.preventDefault(); if (!name.trim()) return; run(async () => { const r = await joinQueue({ branchId, guestName: name.trim(), partySize: size }); if (r.ok) { setName(""); setSize(2); } return r; }); }}>
+          <form className="queue-form" onSubmit={event => { event.preventDefault(); if (!name.trim()) return; run(async () => { const r = await joinQueue({ branchId, guestName: name.trim(), partySize: size }); if (r.ok) { setName(""); setSize(2); if (r.entryId) printSlip(r.entryId); } return r; }); }}>
             <label className="sr-only" htmlFor="guest-name">Guest name</label>
             <input id="guest-name" placeholder="Guest name" value={name} maxLength={60} required onChange={event => setName(event.target.value)}/>
             <label className="sr-only" htmlFor="party-size">Party size</label>
@@ -91,7 +93,7 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, 
           {snapshot.queue.length === 0
             ? <p className="pos-empty">Nobody waiting.</p>
             : <ul className="queue-rows">{snapshot.queue.map(entry => <li key={entry.id}>
-                <span className="queue-no">{ticketLabel(entry.ticketNo)}</span>
+                <button className="queue-no" title="Print slip" onClick={() => printSlip(entry.id)}>{ticketLabel(entry.ticketNo)}<Printer size={11}/></button>
                 <div><strong>{entry.guestName}</strong><span><Users size={13}/>{entry.partySize} · <Clock3 size={13}/>{waited(entry.joinedAt)} min</span></div>
                 {entry.status === "offered"
                   ? <div className="queue-called">

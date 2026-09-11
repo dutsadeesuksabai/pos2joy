@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { cookies, headers } from "next/headers";
+import { resolveLocale } from "@/i18n/dictionary";
 import { getDatabase } from "@/db";
 import { branches, restaurants } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -11,8 +13,10 @@ export const dynamic = "force-dynamic";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function CallPage({ params }: { params: Promise<{ branchId: string }> }) {
+export default async function CallPage({ params, searchParams }: { params: Promise<{ branchId: string }>; searchParams: Promise<{ lang?: string }> }) {
   const { branchId } = await params;
+  const { lang } = await searchParams;
+  const locale = resolveLocale(lang, (await cookies()).get("lang")?.value, (await headers()).get("accept-language"));
   if (!uuid.test(branchId)) notFound();
   const [branch] = await getDatabase().select({ id: branches.id, organizationId: branches.organizationId, name: branches.name, restaurantName: restaurants.name })
     .from(branches)
@@ -20,5 +24,5 @@ export default async function CallPage({ params }: { params: Promise<{ branchId:
     .where(eq(branches.id, branchId));
   if (!branch) notFound();
   const board = await readCallBoard({ branchId: branch.id, organizationId: branch.organizationId });
-  return <CallDisplay restaurant={branch.restaurantName} branch={branch.name} board={board}/>;
+  return <CallDisplay restaurant={branch.restaurantName} branch={branch.name} board={board} locale={locale}/>;
 }

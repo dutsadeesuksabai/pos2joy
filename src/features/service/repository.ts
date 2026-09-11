@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, sql as raw } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDatabase } from "@/db";
-import { branches, branchStaff, diningTables, floors, layoutVersions, memberships, menuItems, orderItems, orders, queueEntries, queueSeatingEvents } from "@/db/schema";
+import { branches, branchStaff, diningTables, floors, layoutVersions, memberships, menuItems, orderItems, orders, queueEntries, queueSeatingEvents, restaurants } from "@/db/schema";
 import { canSeat, planSeating, type QueueParty, type ServiceTable } from "@/features/queue/recommend";
 import { hasPermission, resolveBranchRole } from "@/features/tenancy/permissions";
 import { canvasSchema, type FloorCanvas } from "@/features/floor/model";
@@ -267,4 +267,29 @@ export async function readCallBoard(scope: Scope) {
     waiting: rows.filter(row => row.status === "waiting")
       .map(row => ({ id: row.id, guestName: row.guestName, partySize: row.partySize, ticketNo: row.ticketNo })),
   };
+}
+
+// Public read for the slip QR: the guest holds an entry ID and nothing else.
+// Returns only what their own ticket shows, plus how many are ahead of them.
+export async function readQueueTicket(entryId: string) {
+  const called = alias(diningTables, "ticket_table");
+  const [row] = await getDatabase().select({
+    id: queueEntries.id, ticketNo: queueEntries.ticketNo, guestName: queueEntries.guestName,
+    partySize: queueEntries.partySize, status: queueEntries.status, joinedAt: queueEntries.joinedAt,
+    serviceDay: queueEntries.serviceDay, branchId: queueEntries.branchId, organizationId: queueEntries.organizationId,
+    tableLabel: called.label, branchName: branches.name, restaurantName: restaurants.name,
+  }).from(queueEntries)
+    .innerJoin(branches, and(eq(branches.id, queueEntries.branchId), eq(branches.organizationId, queueEntries.organizationId)))
+    .innerJoin(restaurants, and(eq(restaurants.id, branches.restaurantId), eq(restaurants.organizationId, branches.organizationId)))
+    .leftJoin(called, eq(called.id, queueEntries.calledTableId))
+    .where(eq(queueEntries.id, entryId));
+  if (!row) return null;
+
+  // Only a count, never the other guests' names.
+  const [{ ahead }] = await getDatabase().select({ ahead: raw<number>`count(*)::int` })
+    .from(queueEntries)
+    .where(and(eq(queueEntries.branchId, row.branchId), eq(queueEntries.organizationId, row.organizationId),
+      eq(queueEntries.serviceDay, row.serviceDay), eq(queueEntries.status, "waiting"),
+      raw`${queueEntries.ticketNo} < ${row.ticketNo}`));
+  return { ...row, joinedAt: row.joinedAt.getTime(), ahead };
 }
