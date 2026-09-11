@@ -1,0 +1,2 @@
+ALTER TABLE "menu_items" ADD COLUMN "kind" text DEFAULT 'a_la_carte' NOT NULL;--> statement-breakpoint
+ALTER TABLE "menu_items" ADD CONSTRAINT "menu_kind_valid" CHECK ("menu_items"."kind" in ('a_la_carte', 'buffet'));

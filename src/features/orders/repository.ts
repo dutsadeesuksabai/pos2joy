@@ -23,7 +23,7 @@ export async function readGuestTable(tableId: string) {
 }
 
 export async function readGuestMenu(branchId: string, organizationId: string) {
-  return getDatabase().select({ id: menuItems.id, name: menuItems.name, category: menuItems.category, priceCents: menuItems.priceCents, available: menuItems.available })
+  return getDatabase().select({ id: menuItems.id, name: menuItems.name, category: menuItems.category, kind: menuItems.kind, priceCents: menuItems.priceCents, available: menuItems.available })
     .from(menuItems)
     .where(and(eq(menuItems.branchId, branchId), eq(menuItems.organizationId, organizationId), eq(menuItems.available, true)))
     .orderBy(asc(menuItems.sortOrder), asc(menuItems.name));

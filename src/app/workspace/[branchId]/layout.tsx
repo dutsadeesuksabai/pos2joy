@@ -12,6 +12,7 @@ export default async function BranchLayout({ children, params }: { children: Rea
     { href: "/service", label: translate(locale, "staff.service") },
     ...(hasPermission(branch.role, "kitchen:manage") ? [{ href: "/kitchen", label: translate(locale, "staff.kitchen") }] : []),
     { href: "/floor", label: translate(locale, "staff.floor") },
+    ...(hasPermission(branch.role, "menu:manage") ? [{ href: "/menu", label: translate(locale, "menu.menu") }] : []),
   ];
   return <>
     <div className="branch-bar"><strong>{branch.name}</strong><span>{branch.restaurantName}</span></div>

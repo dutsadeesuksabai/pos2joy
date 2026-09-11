@@ -112,10 +112,12 @@ export const queueSeatingEvents = pgTable("queue_seating_events", {
 export const menuItems = pgTable("menu_items", {
   id: id(), organizationId: uuid("organization_id").notNull(), branchId: uuid("branch_id").notNull(),
   name: text("name").notNull(), category: text("category").notNull(), priceCents: integer("price_cents").notNull(),
+  kind: text("kind", { enum: ["a_la_carte", "buffet"] }).notNull().default("a_la_carte"),
   available: boolean("available").notNull().default(true), sortOrder: integer("sort_order").notNull().default(0),
 }, t => [
   unique().on(t.branchId, t.name), unique().on(t.id, t.branchId, t.organizationId),
   check("menu_price_nonnegative", sql`${t.priceCents} >= 0`),
+  check("menu_kind_valid", sql`${t.kind} in ('a_la_carte', 'buffet')`),
   foreignKey({ columns: [t.branchId, t.organizationId], foreignColumns: [branches.id, branches.organizationId] }),
 ]).enableRLS();
 

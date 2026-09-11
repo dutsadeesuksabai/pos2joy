@@ -9,7 +9,7 @@ import { LocaleSwitch } from "@/i18n/locale-switch";
 import { formatMoney, orderTotalCents } from "./model";
 import { placeOrder } from "./actions";
 
-type Item = { id: string; name: string; category: string; priceCents: number; available: boolean };
+type Item = { id: string; name: string; category: string; kind: "a_la_carte" | "buffet"; priceCents: number; available: boolean };
 type Placed = { name: string; quantity: number; unitPriceCents: number; status: string };
 type Props = { tableId: string; label: string; restaurant: string; currency: string; menu: Item[]; placed: Placed[]; blocked: string | null; locale: Locale };
 
@@ -24,8 +24,10 @@ export function GuestMenu({ tableId, label, restaurant, currency, menu, placed, 
   const [pending, startTransition] = useTransition();
 
   const all = t("guest.all");
-  const categories = useMemo(() => [all, ...new Set(menu.map(item => item.category))], [menu, all]);
-  const shown = menu.filter(item => !category || category === all || item.category === category);
+  const buffet = menu.filter(item => item.kind === "buffet");
+  const alaCarte = menu.filter(item => item.kind !== "buffet");
+  const categories = useMemo(() => [all, ...new Set(alaCarte.map(item => item.category))], [alaCarte, all]);
+  const shown = alaCarte.filter(item => !category || category === all || item.category === category);
   const lines = menu.filter(item => cart[item.id] > 0).map(item => ({ ...item, quantity: cart[item.id] }));
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
   const total = orderTotalCents(lines.map(line => ({ unitPriceCents: line.priceCents, quantity: line.quantity })));
@@ -73,7 +75,7 @@ export function GuestMenu({ tableId, label, restaurant, currency, menu, placed, 
         <h1>{t("guest.yourOrder")}</h1>
         {lines.length === 0 ? <p className="guest-empty">{t("guest.nothingAdded")}</p> : <ul className="guest-lines">
           {lines.map(line => <li key={line.id}>
-            <div><strong>{line.name}</strong><span>{money(line.priceCents)}</span></div>
+            <div><strong>{line.name}</strong><span>{money(line.priceCents)}{line.kind === "buffet" ? ` · ${line.quantity} ${t("menu.covers")}` : ""}</span></div>
             <div className="stepper">
               <button aria-label={`Remove one ${line.name}`} onClick={() => change(line.id, -1)}><Minus size={15}/></button>
               <span>{line.quantity}</span>
@@ -85,6 +87,17 @@ export function GuestMenu({ tableId, label, restaurant, currency, menu, placed, 
         <Button className="w-full" disabled={!count || pending} onClick={submit}>{pending ? t("guest.sending") : t("guest.send")}<ArrowRight/></Button>
       </section> : <>
         {menu.length === 0 ? <p className="guest-empty">{t("guest.menuNotReady")}</p> : <>
+          {buffet.length > 0 && <section className="guest-buffet">
+            <h2>{t("menu.buffet")}</h2>
+            <ul className="guest-menu">{buffet.map(item => <li key={item.id}>
+              <div><strong>{item.name}</strong><span>{money(item.priceCents)} · {t("menu.perPerson")}</span></div>
+              {cart[item.id] ? <div className="stepper">
+                <button aria-label={`-1 ${item.name}`} onClick={() => change(item.id, -1)}><Minus size={15}/></button>
+                <span>{cart[item.id]}</span>
+                <button aria-label={`+1 ${item.name}`} onClick={() => change(item.id, 1)}><Plus size={15}/></button>
+              </div> : <button className="guest-add" aria-label={`Add ${item.name}`} onClick={() => change(item.id, 1)}><Plus size={17}/></button>}
+            </li>)}</ul>
+          </section>}
           {categories.length > 2 && <nav className="guest-cats" aria-label="Menu categories">{categories.map(name =>
             <button key={name} aria-pressed={category === name || (!category && name === all)} className={category === name || (!category && name === all) ? "active" : ""} onClick={() => setCategory(name)}>{name}</button>)}</nav>}
           <ul className="guest-menu">{shown.map(item => <li key={item.id}>

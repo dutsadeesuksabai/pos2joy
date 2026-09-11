@@ -1,0 +1,28 @@
+/* Menu admin. */
+.menu-admin{margin-top:16px;display:grid;gap:14px}
+.menu-new,.menu-copy{background:#fff;border:1px solid var(--border);border-radius:16px;padding:14px}
+.kind-toggle{display:inline-flex;gap:3px;background:#eef3f9;border-radius:10px;padding:3px;margin-bottom:12px}
+.kind-toggle button{border:0;background:none;color:#4a627f;font-size:13px;min-height:38px;padding:0 16px;border-radius:8px}
+.kind-toggle button[aria-pressed=true]{background:#fff;color:var(--primary);font-weight:700;box-shadow:0 2px 6px #0b356b14}
+.menu-fields{display:grid;gap:9px;grid-template-columns:1fr}
+.menu-fields label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
+.menu-fields input{padding:11px;border:1px solid var(--border);border-radius:9px;background:#fbfcff;font-size:15px}
+.menu-fields button{min-height:46px}
+.menu-copy{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.menu-copy label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.menu-copy select{flex:1;min-width:170px;padding:10px;border:1px solid var(--border);border-radius:9px;background:#fff;font-size:14px}
+.menu-group h2{font-size:14px;color:var(--deep);margin-bottom:9px;display:flex;align-items:baseline;gap:9px}
+.menu-group h2 em{font-style:normal;font-size:11px;color:var(--muted);font-weight:400}
+.menu-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.menu-list li{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--border);border-radius:13px;padding:12px 13px;flex-wrap:wrap}
+.menu-list li.off{opacity:.55}
+.menu-what{flex:1;min-width:120px}
+.menu-what strong{display:block;font-size:14px;color:var(--deep)}
+.menu-what span{font-size:11px;color:var(--muted);display:block;margin-top:4px}
+.menu-price{font-size:15px;font-weight:700;color:var(--deep)}
+.menu-avail{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);min-height:38px}
+.menu-del{border:0;background:none;color:#a9564f;min-width:38px;min-height:38px;display:grid;place-items:center;border-radius:8px}
+.menu-del:hover:not(:disabled){background:#fdeeec}
+.guest-buffet{margin-top:18px}
+.guest-buffet h2{font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#6a83a3;margin-bottom:10px}
+@media(min-width:720px){.menu-fields{grid-template-columns:2fr 1.4fr 1fr auto;align-items:end}}
