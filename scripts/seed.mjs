@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 // its natural key first, and existing staff keep the password they already have.
 const api = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const secret = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+const anon = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 if (!api) throw new Error("NEXT_PUBLIC_SUPABASE_URL is required");
 // SUPABASE_SECRET_KEY is optional. With it, missing logins are created for you.
@@ -39,6 +40,7 @@ const dishes = [
 ];
 
 class SeedIncomplete extends Error {}
+let signupError;
 const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false, connect_timeout: 15, onnotice: () => {} });
 
 // GoTrue owns password hashing, so logins are created through the admin API and
@@ -51,6 +53,19 @@ async function ensureLogin(email) {
       body: JSON.stringify({ email, password, email_confirm: true }),
     });
     if (response.ok) return { id: (await response.json()).id, created: true };
+  } else if (anon) {
+    // Public signup, so GoTrue still hashes the password. Any confirmation it
+    // wants is stamped over SQL afterwards; a password hash is never written here.
+    const response = await fetch(`${api}/auth/v1/signup`, {
+      method: "POST",
+      headers: { apikey: anon, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const id = data.user?.id ?? data.id;
+      if (id) return { id, created: true };
+    } else signupError ??= `${response.status} ${(await response.text()).slice(0, 120)}`;
   }
   const [existing] = await sql`select id from auth.users where email = ${email} limit 1`;
   return existing ? { id: existing.id, created: false } : null;
@@ -67,12 +82,21 @@ try {
   }
   if (missing.length) {
     console.error(`No login exists yet for:\n${missing.map(email => `  ${email}`).join("\n")}`);
-    console.error("\nEither add SUPABASE_SECRET_KEY (Project Settings > API keys > secret) to .env");
-    console.error("and re-run, which creates them for you, or add them by hand under");
-    console.error("Authentication > Users in the dashboard and re-run. Nothing was written.");
+    if (signupError) console.error(`\nSign-up was refused: ${signupError}`);
+    if (signupError?.includes("rate_limit")) console.error("That is the confirmation email hitting the built-in SMTP quota, not a bad password.");
+    console.error("\nFastest fix: add SUPABASE_SECRET_KEY (Project Settings > API keys > secret) to .env");
+    console.error("and re-run. The admin API confirms accounts directly, so it sends no mail and is never");
+    console.error("rate limited. Otherwise switch off Authentication > Sign In / Providers > Email >");
+    console.error("Confirm email, or add the accounts by hand under Authentication > Users, then re-run.");
+    console.error("Nothing was written.");
     process.exitCode = 1;
     throw new SeedIncomplete();
   }
+
+  // Seeded staff must be able to sign in immediately. Only the confirmation
+  // timestamp is touched; confirmed_at is generated from it.
+  await sql`update auth.users set email_confirmed_at = now()
+             where email = any(${staff.map(person => person.email)}) and email_confirmed_at is null`;
 
   const summary = await sql.begin(async tx => {
     const [found] = await tx`select id, organization_id from restaurants where slug = ${slug}`;
