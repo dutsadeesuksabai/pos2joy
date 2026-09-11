@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { headers } from "next/headers";
 import { requireBranch } from "@/features/tenancy/queries";
 import { hasPermission } from "@/features/tenancy/permissions";
@@ -15,8 +14,6 @@ export default async function ServicePage({ params }: { params: Promise<{ branch
   const host = (await headers()).get("host") ?? "localhost:3000";
   const origin = process.env.NEXT_PUBLIC_SITE_ORIGIN ?? `${host.startsWith("localhost") ? "http" : "https"}://${host}`;
   return <>
-    <Link href={`/workspace/${branch.id}`} className="auth-demo-link">← {branch.restaurantName} · {branch.name}</Link>
-    <div className="eyebrow">SERVICE</div><h1>Today’s floor.</h1>
     <ServiceConsole branchId={branch.id} currency={branch.currency} origin={origin} snapshot={snapshot} canBill={hasPermission(branch.role, "billing:manage")}/>
   </>;
 }

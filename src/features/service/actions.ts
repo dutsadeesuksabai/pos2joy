@@ -19,7 +19,7 @@ const stateSchema = tableSchema.extend({ state: z.enum(["available", "reserved"]
 // Never leaks a driver message; a rule the staff can act on is passed through.
 function failure(error: unknown): ServiceResult {
   if (error instanceof ServiceError) return { ok: false, error: error.message };
-  return { ok: false, error: "We couldn’t update the floor. Please refresh and try again." };
+  return { ok: false, error: "Couldn’t update. Refresh and try again." };
 }
 
 export async function joinQueue(input: unknown): Promise<ServiceResult> {
@@ -29,7 +29,7 @@ export async function joinQueue(input: unknown): Promise<ServiceResult> {
   try {
     await addToQueue(scopeOf(branch), data.data.guestName, data.data.partySize);
     revalidatePath(`/workspace/${branch.id}/service`);
-    return { ok: true, message: `${data.data.guestName} is on the waiting list.` };
+    return { ok: true, message: `${data.data.guestName} added.` };
   } catch (error) { return failure(error); }
 }
 
@@ -40,7 +40,7 @@ export async function seatTable(input: unknown): Promise<ServiceResult> {
   try {
     const { label } = await seatParty(scopeOf(branch), data.data.tableId, data.data.entryId);
     revalidatePath(`/workspace/${branch.id}/service`);
-    return { ok: true, message: `Table ${label} is seated and its bill is open.` };
+    return { ok: true, message: `Table ${label} seated.` };
   } catch (error) { return failure(error); }
 }
 
@@ -51,7 +51,7 @@ export async function closeTable(input: unknown): Promise<ServiceResult> {
   try {
     const { label } = await closeBill(scopeOf(branch), data.data.tableId);
     revalidatePath(`/workspace/${branch.id}/service`);
-    return { ok: true, message: `Table ${label} is paid and free again.` };
+    return { ok: true, message: `Table ${label} closed.` };
   } catch (error) { return failure(error); }
 }
 
@@ -62,7 +62,7 @@ export async function markTable(input: unknown): Promise<ServiceResult> {
   try {
     const { label } = await setTableState(scopeOf(branch), data.data.tableId, data.data.state);
     revalidatePath(`/workspace/${branch.id}/service`);
-    return { ok: true, message: `Table ${label} is now ${data.data.state}.` };
+    return { ok: true, message: `Table ${label} ${data.data.state}.` };
   } catch (error) { return failure(error); }
 }
 
@@ -77,6 +77,6 @@ export async function advanceTicket(input: unknown): Promise<ServiceResult> {
     revalidatePath(`/workspace/${branch.id}/kitchen`);
     revalidatePath(`/workspace/${branch.id}/service`);
     // Someone else already moved it; say so rather than claiming a change.
-    return { ok: true, message: result.changed ? `Ticket marked ${data.data.status}.` : `That ticket was already ${result.status}.` };
+    return { ok: true, message: result.changed ? data.data.status === "preparing" ? "Cooking." : data.data.status === "served" ? "Served." : "Cancelled." : `Already ${result.status}.` };
   } catch (error) { return failure(error); }
 }

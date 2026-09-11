@@ -41,7 +41,7 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
         setIsError(!result.ok);
         setMessage(result.ok ? result.message : result.error);
         if (result.ok) router.refresh();
-      } catch { setIsError(true); setMessage("Connection interrupted. Refresh to see the current floor."); }
+      } catch { setIsError(true); setMessage("Connection lost. Refresh."); }
     });
   }
 
@@ -59,7 +59,7 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
       <div className="pos-main">
         {tab === "floor" ? <>
           {snapshot.tables.length === 0
-            ? <p className="pos-empty">No tables yet. Publish a floor layout first, then tables appear here.</p>
+            ? <p className="pos-empty">No tables yet. Publish a floor layout first.</p>
             : <div className="table-grid">{snapshot.tables.map(item => {
                 const bill = billFor(item.id);
                 return <button key={item.id} className={`table-tile ${item.state} ${selected === item.id ? "chosen" : ""}`} aria-pressed={selected === item.id} onClick={() => setSelected(item.id === selected ? null : item.id)}>
@@ -78,19 +78,19 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
             <Button type="submit" disabled={pending || !name.trim()}>Add</Button>
           </form>
           {snapshot.queue.length === 0
-            ? <p className="pos-empty">Nobody is waiting. Lovely.</p>
+            ? <p className="pos-empty">Nobody waiting.</p>
             : <ul className="queue-rows">{snapshot.queue.map((entry, index) => <li key={entry.id}>
                 <span className="queue-no">{String(index + 1).padStart(2, "0")}</span>
                 <div><strong>{entry.guestName}</strong><span><Users size={13}/>{entry.partySize} · <Clock3 size={13}/>{waited(entry.joinedAt)} min</span></div>
                 {table && table.state === "available" && entry.partySize <= table.capacity
-                  ? <Button disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: entry.id }))}>Seat at {table.label}</Button>
+                  ? <Button disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: entry.id }))}>Seat</Button>
                   : <span className="queue-hint">{table ? (table.state !== "available" ? `${table.label} busy` : `needs ${entry.partySize}`) : "pick a table"}</span>}
               </li>)}</ul>}
         </>}
       </div>
 
       <aside className="pos-side">
-        {!table ? <p className="pos-empty">Choose a table to seat guests, take its bill, or show its QR code.</p> : <>
+        {!table ? <p className="pos-empty">Pick a table.</p> : <>
           <div className="side-head"><div><strong>Table {table.label}</strong><span>{table.capacity} seats · {table.state}</span></div></div>
 
           {(() => {
@@ -102,29 +102,29 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
                 <span>{line.quantity}× {line.name}</span><span>{formatMoney(line.unitPriceCents * line.quantity, currency)}</span>
               </li>)}</ul>
               <strong>{formatMoney(bill.totalCents, currency)}</strong>
-            </div> : table.state === "occupied" ? <p className="pos-empty small">Seated. No orders on this bill yet.</p> : null;
+            </div> : table.state === "occupied" ? <p className="pos-empty small">No orders yet.</p> : null;
           })()}
 
           <div className="side-actions">
             {table.state === "available" && <>
-              <Button disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: null }))}><Check/>Seat walk-in</Button>
-              <Button variant="outline" disabled={pending} onClick={() => run(() => markTable({ branchId, tableId: table.id, state: "reserved" }))}>Hold as reserved</Button>
+              <Button disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: null }))}><Check/>Seat</Button>
+              <Button variant="outline" disabled={pending} onClick={() => run(() => markTable({ branchId, tableId: table.id, state: "reserved" }))}>Reserve</Button>
             </>}
             {table.state === "reserved" && <>
-              <Button disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: null }))}><Check/>Seat this table</Button>
-              <Button variant="outline" disabled={pending} onClick={() => run(() => markTable({ branchId, tableId: table.id, state: "available" }))}>Release hold</Button>
+              <Button disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: null }))}><Check/>Seat</Button>
+              <Button variant="outline" disabled={pending} onClick={() => run(() => markTable({ branchId, tableId: table.id, state: "available" }))}>Free</Button>
             </>}
             {table.state === "occupied" && (canBill
-              ? <Button disabled={pending} onClick={() => run(() => closeTable({ branchId, tableId: table.id }))}><Receipt/>Close bill &amp; free table</Button>
-              : <p className="pos-empty small">Only a cashier or manager can close a bill.</p>)}
-            <Button variant="ghost" onClick={() => setQrFor(qrFor === table.id ? null : table.id)}><QrCode/>{qrFor === table.id ? "Hide QR code" : "Show QR code"}</Button>
+              ? <Button disabled={pending} onClick={() => run(() => closeTable({ branchId, tableId: table.id }))}><Receipt/>Close bill</Button>
+              : <p className="pos-empty small">Cashier or manager closes bills.</p>)}
+            <Button variant="ghost" onClick={() => setQrFor(qrFor === table.id ? null : table.id)}><QrCode/>{qrFor === table.id ? "Hide QR" : "QR code"}</Button>
           </div>
 
           {qrFor === table.id && <div className="qr-card">
             <img alt={`QR code linking to the menu for table ${table.label}`} width={180} height={180}
               src={`/workspace/${branchId}/qr/${table.id}`}/>
             <code>{origin}/t/{table.id}</code>
-            <p>Print this for table {table.label}. Guests can order once the table is seated.</p>
+            <p>Print for table {table.label}.</p>
           </div>}
 
           {matches.length > 0 && <div className="match-card">

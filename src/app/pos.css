@@ -88,3 +88,12 @@
 .ticket footer button:first-child{flex:1;min-height:46px;font-size:13px}
 .ticket footer button:last-child{min-height:46px;min-width:46px;padding:0;color:#a9564f!important}
 @media(max-width:520px){.ticket-grid{grid-template-columns:1fr}}
+
+/* Branch context and section tabs, in place of the old landing page. */
+.branch-bar{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.branch-bar strong{font-size:22px;color:var(--deep);letter-spacing:-.6px}
+.branch-bar span{font-size:12px;color:var(--muted)}
+.branch-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:4px;overflow-x:auto;scrollbar-width:none}
+.branch-tabs::-webkit-scrollbar{display:none}
+.branch-tabs a{flex:none;padding:11px 15px;font-size:14px;color:#5d708b;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.branch-tabs a[aria-current=page]{color:var(--primary);border-bottom-color:var(--primary);font-weight:700}

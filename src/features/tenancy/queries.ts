@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { and, eq, isNotNull, or } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { getDatabase } from "@/db";
@@ -30,11 +31,11 @@ export async function listAuthorizedBranches() {
   });
 }
 
-export async function requireBranch(branchId: string, permission: Permission = "branch:read") {
+export const requireBranch = cache(async (branchId: string, permission: Permission = "branch:read") => {
   // An inaccessible and nonexistent branch produce the same response.
   await requireUser();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(branchId)) notFound();
   const branch = (await listAuthorizedBranches()).find(item => item.id === branchId);
   if (!branch || !hasPermission(branch.role, permission)) notFound();
   return branch;
-}
+});
