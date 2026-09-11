@@ -9,13 +9,13 @@ export const dynamic = "force-dynamic";
 
 export default async function ServicePage({ params }: { params: Promise<{ branchId: string }> }) {
   const { branchId } = await params;
-  const branch = await requireBranch(branchId, "queue:manage");
+  const branch = await requireBranch(branchId);
   const snapshot = await readService({ branchId: branch.id, organizationId: branch.organizationId });
   // The QR links must point at the host the guest will actually reach.
   const host = (await headers()).get("host") ?? "localhost:3000";
   const origin = process.env.NEXT_PUBLIC_SITE_ORIGIN ?? `${host.startsWith("localhost") ? "http" : "https"}://${host}`;
   return <>
     <Link className="auth-demo-link" href={`/workspace/${branch.id}/fair-queue`}>Fair Queue · seating plan and guest requirements →</Link>
-    <ServiceConsole branchId={branch.id} currency={branch.currency} origin={origin} snapshot={snapshot} canBill={hasPermission(branch.role, "billing:manage")}/>
+    <ServiceConsole branchId={branch.id} currency={branch.currency} origin={origin} snapshot={snapshot} canBill={hasPermission(branch.role, "billing:manage")} canQueue={hasPermission(branch.role, "queue:manage")}/>
   </>;
 }

@@ -11,12 +11,13 @@ import { canSeat, planSeating } from "@/features/queue/recommend";
 import { callQueue, cancelCall, closeTable, joinQueue, markTable, seatTable } from "./actions";
 import type { ServiceSnapshot } from "./repository";
 
-type Props = { branchId: string; currency: string; origin: string; snapshot: ServiceSnapshot; canBill: boolean };
+type Props = { branchId: string; currency: string; origin: string; snapshot: ServiceSnapshot; canBill: boolean; canQueue: boolean };
 type Tab = "floor" | "queue";
 
-export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }: Props) {
+export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, canQueue }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("floor");
+  const showQueue = canQueue && tab === "queue";
   const [selected, setSelected] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -57,16 +58,16 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
   const calledTable = (entryId: string) => snapshot.queue.find(entry => entry.id === entryId)?.calledTableLabel ?? null;
 
   return <section className="pos">
-    <div className="pos-tabs" role="tablist">
+    {canQueue && <div className="pos-tabs" role="tablist">
       <button role="tab" aria-selected={tab === "floor"} onClick={() => setTab("floor")}><Armchair size={17}/>Floor<span>{free}/{snapshot.tables.length}</span></button>
       <button role="tab" aria-selected={tab === "queue"} onClick={() => setTab("queue")}><Users size={17}/>Queue<span>{snapshot.queue.length}</span></button>
-    </div>
+    </div>}
 
     {message && <div className={`pos-message ${isError ? "error" : ""}`} role={isError ? "alert" : "status"}><span>{message}</span><button aria-label="Dismiss" onClick={() => setMessage("")}><X size={16}/></button></div>}
 
     <div className={`pos-body ${tab}`}>
       <div className="pos-main">
-        {tab === "floor" ? <>
+        {!showQueue ? <>
           {snapshot.tables.length === 0
             ? <p className="pos-empty">No tables yet.<br/><Link className="pos-fix" href={`/workspace/${branchId}/floor`}>Set up the floor →</Link></p>
             : <div className="table-grid">{snapshot.tables.map(item => {
@@ -126,11 +127,11 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
           })()}
 
           <div className="side-actions">
-            {table.state === "available" && <>
+            {canQueue && table.state === "available" && <>
               <Button disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: null }))}><Check/>Seat</Button>
               <Button variant="outline" disabled={pending} onClick={() => run(() => markTable({ branchId, tableId: table.id, state: "reserved" }))}>Reserve</Button>
             </>}
-            {table.state === "reserved" && <>
+            {canQueue && table.state === "reserved" && <>
               <Button disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: null }))}><Check/>Seat</Button>
               <Button variant="outline" disabled={pending} onClick={() => run(() => markTable({ branchId, tableId: table.id, state: "available" }))}>Free</Button>
             </>}
