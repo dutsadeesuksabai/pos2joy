@@ -135,3 +135,4 @@
 .call-ticket{background:#ffffff1f;border-radius:8px;padding:4px 10px;font-weight:700;color:#8fd2f4;font-size:clamp(13px,1.4vw,18px);margin-right:12px}
 .call-ready li>span:nth-child(2){flex:1}
 .call-waiting .call-no{min-width:54px;font-weight:700;color:#8fd2f4}
+.pos-fix{display:inline-block;margin-top:10px;color:var(--primary);font-weight:700;font-size:13px}

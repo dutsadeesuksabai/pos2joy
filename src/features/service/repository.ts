@@ -220,7 +220,7 @@ export async function callParty(actor: QueueActor, entryId: string, tableId: str
       .where(and(eq(queueEntries.id, entryId), scopeOf(queueEntries, actor))).for("update");
     if (!entry) throw new ServiceError("That party is no longer waiting.");
     if (entry.status !== "waiting") throw new ServiceError(`${entry.guestName}'s party was already ${entry.status}.`);
-    if (entry.partySize > table.capacity) throw new ServiceError(`${entry.guestName}'s party of ${entry.partySize} does not fit ${table.capacity} seats.`);
+    if (!canSeat(asTable(table), asParty(entry))) throw new ServiceError("This table does not meet the party's capacity, accessibility, or seating area requirements.");
 
     const [clock] = await tx.select({ now: raw<string>`clock_timestamp()::text` }).from(branches).where(eq(branches.id, actor.branchId));
     await tx.update(queueEntries).set({ status: "offered", calledAt: new Date(clock.now), calledTableId: table.id }).where(eq(queueEntries.id, entry.id));

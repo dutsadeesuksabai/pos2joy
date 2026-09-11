@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Armchair, BellRing, Check, Clock3, QrCode, Receipt, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/features/orders/model";
 import { ticketLabel } from "@/features/queue/ticket";
-import { recommend } from "@/features/queue/recommend";
+import { canSeat, planSeating } from "@/features/queue/recommend";
 import { callQueue, cancelCall, closeTable, joinQueue, markTable, seatTable } from "./actions";
 import type { ServiceSnapshot } from "./repository";
 
@@ -22,7 +23,7 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
   const [name, setName] = useState("");
   const [size, setSize] = useState(2);
   const [qrFor, setQrFor] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(snapshot.generatedAt);
   const [pending, startTransition] = useTransition();
 
   // Waits are shown in minutes, so a minute is fast enough to re-render.
@@ -31,9 +32,9 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
   const table = snapshot.tables.find(item => item.id === selected) ?? null;
   const billFor = (tableId: string) => snapshot.bills.find(bill => bill.tableId === tableId && bill.status !== "served");
   const free = snapshot.tables.filter(item => item.state === "available").length;
-  const matches = table && table.state === "available"
-    ? recommend({ ...table, status: "available", x: 0, y: 0 }, snapshot.queue.map(entry => ({ id: entry.id, name: entry.guestName, size: entry.partySize, joinedAt: entry.joinedAt, status: "waiting" as const })), now)
-    : [];
+  const serviceTables = snapshot.tables.map(t => ({ ...t, status: t.state, x: 0, y: 0 }));
+  const queueParties = snapshot.queue.map(entry => ({ id: entry.id, name: entry.guestName, size: entry.partySize, joinedAt: entry.joinedAt, status: entry.status, needsAccessible: entry.needsAccessible, requestedFloorId: entry.requestedFloorId }));
+  const matches = planSeating(serviceTables, queueParties, now).filter(match => match.table.id === table?.id);
 
   function run(work: () => Promise<{ ok: true; message: string } | { ok: false; error: string }>) {
     startTransition(async () => {
@@ -49,7 +50,10 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
   const waited = (joinedAt: number) => Math.max(0, Math.floor((now - joinedAt) / 60000));
   // The Call button lights up on its own: it takes the smallest free table that
   // fits, so a host never has to choose one before calling the next party.
-  const freeFor = (size: number) => snapshot.tables.filter(item => item.state === "available" && item.capacity >= size).sort((a, b) => a.capacity - b.capacity)[0];
+  const freeFor = (entryId: string) => {
+    const party = queueParties.find(item => item.id === entryId);
+    return party ? serviceTables.filter(item => canSeat(item, party)).sort((a, b) => a.capacity - b.capacity)[0] : undefined;
+  };
   const calledTable = (entryId: string) => snapshot.queue.find(entry => entry.id === entryId)?.calledTableLabel ?? null;
 
   return <section className="pos">
@@ -64,7 +68,7 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
       <div className="pos-main">
         {tab === "floor" ? <>
           {snapshot.tables.length === 0
-            ? <p className="pos-empty">No tables yet. Publish a floor layout first.</p>
+            ? <p className="pos-empty">No tables yet.<br/><Link className="pos-fix" href={`/workspace/${branchId}/floor`}>Set up the floor →</Link></p>
             : <div className="table-grid">{snapshot.tables.map(item => {
                 const bill = billFor(item.id);
                 return <button key={item.id} className={`table-tile ${item.state} ${selected === item.id ? "chosen" : ""}`} aria-pressed={selected === item.id} onClick={() => setSelected(item.id === selected ? null : item.id)}>
@@ -93,14 +97,14 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill }
                       <span>Called{calledTable(entry.id) ? ` → ${calledTable(entry.id)}` : ""}</span>
                       <button disabled={pending} onClick={() => run(() => cancelCall({ branchId, entryId: entry.id }))}>No show</button>
                     </div>
-                  : table && table.state === "available" && entry.partySize <= table.capacity
+                  : table && canSeat({ ...table, status: table.state, x: 0, y: 0 }, queueParties.find(party => party.id === entry.id)!)
                   ? <div className="queue-acts">
                       <Button disabled={pending} onClick={() => run(() => callQueue({ branchId, entryId: entry.id, tableId: table.id }))}><BellRing/>Call</Button>
                       <Button variant="outline" disabled={pending} onClick={() => run(() => seatTable({ branchId, tableId: table.id, entryId: entry.id }))}>Seat</Button>
                     </div>
-                  : freeFor(entry.partySize)
-                  ? <Button disabled={pending} onClick={() => run(() => callQueue({ branchId, entryId: entry.id, tableId: freeFor(entry.partySize)!.id }))}><BellRing/>Call</Button>
-                  : <span className="queue-hint">no free table</span>}
+                  : freeFor(entry.id)
+                  ? <Button disabled={pending} onClick={() => run(() => callQueue({ branchId, entryId: entry.id, tableId: freeFor(entry.id)!.id }))}><BellRing/>Call</Button>
+                  : <span className="queue-hint">{snapshot.tables.length === 0 ? "no tables yet" : "no free table"}</span>}
               </li>)}</ul>}
         </>}
       </div>
