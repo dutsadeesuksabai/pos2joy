@@ -37,9 +37,28 @@ npm run db:migrate
 
 This command reads `.env` and applies migrations explicitly. Application startup does not modify the database. All core tables have RLS enabled with **no client policies**, so `anon` and `authenticated` Data API callers have no row access. This is intentional: current staff data goes through verified server queries. Add carefully scoped policies and integration tests before introducing client-side Realtime or Data API queries.
 
-## 4. Assign the first restaurant owner
+## 4. Seed a restaurant and its staff
 
-Create the owner in Supabase Auth first and obtain their user UUID. Then run this transaction in the Supabase SQL editor, replacing the UUID and restaurant details. This is a one-time example that creates a new business, not a repeatable seed script.
+```sh
+npm run db:seed
+```
+
+Creates one restaurant with a branch, a ground floor, a short menu, and six logins:
+an owner plus a manager, host, server, kitchen, and cashier, each already assigned
+the matching branch role. Logins are created through the Supabase admin API, so this
+needs `SUPABASE_SECRET_KEY` (the secret/service_role key) in `.env`. That key bypasses
+every access rule: keep it server-side and never give it a `NEXT_PUBLIC_` prefix.
+
+The generated password is printed once, at the end of the run. Set `SEED_PASSWORD` to
+choose your own, and `SEED_RESTAURANT`, `SEED_BRANCH`, or `SEED_EMAIL_DOMAIN` to change
+the names. Re-running is safe: rows are matched on their natural keys and accounts that
+already exist keep the password they have. **These are demo logins. Change or remove
+them before the project serves real customers.**
+
+### Assigning an owner by hand
+
+
+Prefer `npm run db:seed` above. To create a business for a real owner instead, create them in Supabase Auth, take their user UUID, and run this transaction in the Supabase SQL editor with your own details.
 
 ```sql
 begin;
