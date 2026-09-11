@@ -1,0 +1,67 @@
+/* Staff POS. One column on a phone, floor beside its detail panel from tablet up. */
+.pos{margin-top:18px}
+.pos-tabs{display:flex;gap:6px;background:#eef3f9;border-radius:13px;padding:4px;margin-bottom:14px}
+.pos-tabs button{flex:1;border:0;background:none;display:flex;align-items:center;justify-content:center;gap:7px;min-height:46px;border-radius:10px;font-size:14px;color:#4a627f;font-weight:600}
+.pos-tabs button[aria-selected=true]{background:#fff;color:var(--primary);box-shadow:0 2px 8px #0b356b14}
+.pos-tabs span{font-size:11px;background:#dde7f3;border-radius:6px;padding:2px 7px;font-weight:400}
+.pos-tabs button[aria-selected=true] span{background:var(--secondary)}
+.pos-message{display:flex;align-items:center;gap:10px;background:#eef6ff;border:1px solid #d5e6fb;color:#1c4d8f;border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:13px;line-height:1.5}
+.pos-message.error{background:#fff3f2;border-color:#f2d5d2;color:#9c3b34}
+.pos-message button{margin-left:auto;border:0;background:none;color:inherit;min-width:30px;min-height:30px;display:grid;place-items:center;flex-shrink:0}
+.pos-body{display:grid;gap:16px}
+.pos-main,.pos-side{background:#fff;border:1px solid var(--border);border-radius:18px;padding:16px}
+.pos-empty{font-size:13px;color:var(--muted);line-height:1.7;padding:18px 4px;text-align:center}
+.pos-empty.small{padding:10px 4px;text-align:left;font-size:12px}
+
+/* Tiles stay at least 92px wide so they are tappable on a phone. */
+.table-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px}
+.table-tile{border:1.5px solid #b9d4e6;background:#f1f9fd;border-radius:14px;padding:12px 8px;display:grid;gap:3px;justify-items:center;min-height:96px;align-content:center;color:#2a6f96}
+.table-tile strong{font-size:21px;line-height:1}
+.table-tile span{font-size:10px;color:#5c7c92}
+.table-tile small{font-size:9px;text-transform:capitalize;letter-spacing:.4px}
+.table-tile em{font-size:11px;font-style:normal;font-weight:700;background:#fff;border-radius:6px;padding:2px 6px;margin-top:2px}
+.table-tile.occupied{background:#eaf0fd;border-color:#9fb6e2;color:#35599a}
+.table-tile.reserved{background:#fff5e2;border-color:#dfc699;color:#84642c}
+.table-tile.held{background:#f3eefc;border-color:#c3b0e0;color:#5f4794}
+.table-tile.chosen{border-width:3px;border-color:var(--primary);box-shadow:0 0 0 4px #0754c914}
+
+.queue-form{display:flex;gap:7px;margin-bottom:14px}
+.queue-form input{flex:1;min-width:0;padding:11px;border:1px solid var(--border);border-radius:10px;background:#fbfcff;font-size:15px}
+.queue-form input[type=number]{flex:0 0 68px}
+.queue-form button{min-height:44px;padding:0 16px}
+.queue-rows{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.queue-rows li{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:12px;padding:11px}
+.queue-no{font-size:11px;color:#8b9db3;font-weight:700;min-width:22px}
+.queue-rows strong{font-size:14px;display:block}
+.queue-rows li>div{flex:1;min-width:0}
+.queue-rows li>div span{display:flex;align-items:center;gap:4px;font-size:11px;color:#75859a;margin-top:4px}
+.queue-rows button{font-size:12px;min-height:38px;white-space:nowrap}
+.queue-hint{font-size:10px;color:#93a3b7;text-align:right;max-width:78px;line-height:1.4}
+
+.side-head strong{font-size:17px;display:block}
+.side-head span{font-size:12px;color:var(--muted);display:block;margin-top:4px;text-transform:capitalize}
+.bill-card{background:#f6faff;border:1px solid #dcebfb;border-radius:13px;padding:13px;margin-top:13px}
+.bill-head{display:flex;align-items:center;gap:7px;font-size:11px;color:#4a6b8f}
+.bill-head span{margin-left:auto;color:#8496ab}
+.bill-card strong{font-size:25px;display:block;margin-top:7px;color:var(--deep);letter-spacing:-.6px}
+.side-actions{display:grid;gap:8px;margin-top:14px}
+.side-actions button{min-height:46px;font-size:13px;justify-content:flex-start}
+.qr-card{margin-top:14px;background:#fbfcfe;border:1px dashed #cfdcea;border-radius:13px;padding:15px;display:grid;justify-items:center;gap:9px;text-align:center}
+.qr-card img{border-radius:8px;background:#fff;max-width:100%;height:auto}
+.qr-card code{font-size:10px;color:#6a7f97;word-break:break-all;line-height:1.5}
+.qr-card p{font-size:11px;color:var(--muted);line-height:1.6}
+.match-card{margin-top:14px;background:#f0f6ff;border:1px solid #dce8fc;border-radius:13px;padding:14px}
+.match-card strong{display:block;font-size:15px;color:var(--deep);margin-bottom:6px}
+.match-card p{font-size:12px;color:#627899;line-height:1.6;margin-bottom:11px}
+.match-card button{width:100%;min-height:42px;font-size:13px}
+
+@media(min-width:860px){
+  .pos-body{grid-template-columns:minmax(0,1fr) 310px;align-items:start}
+  .pos-tabs{max-width:340px}
+  .table-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+}
+@media(max-width:520px){
+  .pos-main,.pos-side{padding:13px;border-radius:15px}
+  .table-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+  .queue-rows button{font-size:11px;padding:0 10px}
+}
