@@ -1,11 +1,10 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, sql as raw } from "drizzle-orm";
+import { and, asc, eq, inArray, sql as raw } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDatabase } from "@/db";
-import { branches, branchStaff, diningTables, floors, layoutVersions, memberships, menuItems, orderItems, orders, queueEntries, queueSeatingEvents, restaurants } from "@/db/schema";
+import { branches, branchStaff, diningTables, floors, memberships, menuItems, orderItems, orders, queueEntries, queueSeatingEvents, restaurants } from "@/db/schema";
 import { canSeat, planSeating, type QueueParty, type ServiceTable } from "@/features/queue/recommend";
 import { hasPermission, resolveBranchRole } from "@/features/tenancy/permissions";
-import { canvasSchema, type FloorCanvas } from "@/features/floor/model";
 import { serviceDayIn } from "@/features/queue/ticket";
 import { canAdvanceOrder, type OrderStatus } from "@/features/orders/model";
 
@@ -17,7 +16,8 @@ type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 const scopeOf = (table: { branchId: unknown; organizationId: unknown }, scope: Scope) =>
   and(eq(table.branchId as never, scope.branchId), eq(table.organizationId as never, scope.organizationId));
 
-export type ServiceSnapshot = Awaited<ReturnType<typeof readService>>;
+export { readService } from "./reads";
+export type { ServiceSnapshot } from "./reads";
 
 async function lockQueueHost(tx: Transaction, actor: QueueActor) {
   const [branch] = await tx.select().from(branches).where(and(eq(branches.id, actor.branchId), eq(branches.organizationId, actor.organizationId))).for("update");
@@ -31,50 +31,6 @@ async function lockQueueHost(tx: Transaction, actor: QueueActor) {
 
 const asParty = (entry: typeof queueEntries.$inferSelect): QueueParty => ({ id: entry.id, name: entry.guestName, size: entry.partySize, joinedAt: entry.joinedAt.getTime(), status: entry.status, needsAccessible: entry.needsAccessible, requestedFloorId: entry.requestedFloorId });
 const asTable = (table: typeof diningTables.$inferSelect): ServiceTable => ({ ...table, status: table.state, x: 0, y: 0 });
-
-// One read for the whole service screen: the published room, its live tables,
-// the waiting list, and the open bill totals. Kept to a single transaction so
-// a table never renders available next to the bill it still owes.
-export async function readService(scope: Scope) {
-  return getDatabase().transaction(async tx => {
-    const rooms = await tx.select().from(floors).where(scopeOf(floors, scope)).orderBy(asc(floors.name));
-    const published = rooms.length
-      ? await tx.select().from(layoutVersions).where(and(scopeOf(layoutVersions, scope), eq(layoutVersions.state, "published"), inArray(layoutVersions.floorId, rooms.map(room => room.id))))
-      : [];
-    const layouts = new Map<string, FloorCanvas>(published.map(version => [version.floorId, canvasSchema.parse(version.canvas)]));
-
-    const tables = await tx.select().from(diningTables).where(and(scopeOf(diningTables, scope), eq(diningTables.enabled, true))).orderBy(asc(diningTables.label));
-    // The label of the table a party was called to, for the queue rows.
-    const calledTable = alias(diningTables, "called_table");
-    const waiting = await tx.select({ entry: queueEntries, calledTableLabel: calledTable.label })
-      .from(queueEntries).leftJoin(calledTable, eq(calledTable.id, queueEntries.calledTableId))
-      .where(and(scopeOf(queueEntries, scope), inArray(queueEntries.status, ["waiting", "offered"]))).orderBy(asc(queueEntries.joinedAt));
-    const open = await tx.select({
-      id: orders.id, tableId: orders.tableId, status: orders.status, createdAt: orders.createdAt,
-      // Money stays in minor units all the way to the screen.
-      totalCents: raw<number>`coalesce(sum(${orderItems.unitPriceCents} * ${orderItems.quantity}), 0)::int`,
-      lines: raw<number>`count(${orderItems.id})::int`,
-    }).from(orders).leftJoin(orderItems, eq(orderItems.orderId, orders.id))
-      .where(and(scopeOf(orders, scope), inArray(orders.status, ["placed", "preparing", "served"])))
-      .groupBy(orders.id).orderBy(desc(orders.createdAt));
-
-    // What is actually on each bill, so staff can read it back to the table.
-    const items = open.length ? await tx.select({
-      tableId: orders.tableId, name: orderItems.name, quantity: orderItems.quantity, unitPriceCents: orderItems.unitPriceCents,
-    }).from(orderItems).innerJoin(orders, eq(orders.id, orderItems.orderId))
-      .where(and(scopeOf(orders, scope), inArray(orders.id, open.map(bill => bill.id))))
-      .orderBy(asc(orderItems.name)) : [];
-
-    return {
-      generatedAt: Date.now(),
-      rooms: rooms.map(room => ({ id: room.id, name: room.name, canvas: layouts.get(room.id) ?? null })),
-      items,
-      tables: tables.map(table => ({ id: table.id, floorId: table.floorId, label: table.label, capacity: table.capacity, accessible: table.accessible, state: table.state })),
-      queue: waiting.map(({ entry, calledTableLabel }) => ({ id: entry.id, ticketNo: entry.ticketNo, guestName: entry.guestName, partySize: entry.partySize, status: entry.status, joinedAt: entry.joinedAt.getTime(), needsAccessible: entry.needsAccessible, requestedFloorId: entry.requestedFloorId, calledTableLabel })),
-      bills: open.map(bill => ({ ...bill, createdAt: bill.createdAt.getTime() })),
-    };
-  }, { isolationLevel: "repeatable read", accessMode: "read only" });
-}
 
 export async function addToQueue(actor: QueueActor, guestName: string, partySize: number, needsAccessible: boolean, requestedFloorId: string | null) {
   return getDatabase().transaction(async tx => {
@@ -273,11 +229,14 @@ export async function readCallBoard(scope: Scope) {
 // Returns only what their own ticket shows, plus how many are ahead of them.
 export async function readQueueTicket(entryId: string) {
   const called = alias(diningTables, "ticket_table");
+  const earlier = alias(queueEntries, "earlier_entry");
   const [row] = await getDatabase().select({
     id: queueEntries.id, ticketNo: queueEntries.ticketNo, guestName: queueEntries.guestName,
     partySize: queueEntries.partySize, status: queueEntries.status, joinedAt: queueEntries.joinedAt,
     serviceDay: queueEntries.serviceDay, branchId: queueEntries.branchId, organizationId: queueEntries.organizationId,
     tableLabel: called.label, branchName: branches.name, restaurantName: restaurants.name,
+    // Correlated count shares the ticket statement's snapshot and round trip.
+    ahead: raw<number>`(select count(*)::int from ${queueEntries} as earlier_entry where ${earlier.branchId} = ${queueEntries.branchId} and ${earlier.organizationId} = ${queueEntries.organizationId} and ${earlier.serviceDay} = ${queueEntries.serviceDay} and ${earlier.status} = 'waiting' and ${earlier.ticketNo} < ${queueEntries.ticketNo})`,
   }).from(queueEntries)
     .innerJoin(branches, and(eq(branches.id, queueEntries.branchId), eq(branches.organizationId, queueEntries.organizationId)))
     .innerJoin(restaurants, and(eq(restaurants.id, branches.restaurantId), eq(restaurants.organizationId, branches.organizationId)))
@@ -285,11 +244,67 @@ export async function readQueueTicket(entryId: string) {
     .where(eq(queueEntries.id, entryId));
   if (!row) return null;
 
-  // Only a count, never the other guests' names.
-  const [{ ahead }] = await getDatabase().select({ ahead: raw<number>`count(*)::int` })
-    .from(queueEntries)
-    .where(and(eq(queueEntries.branchId, row.branchId), eq(queueEntries.organizationId, row.organizationId),
-      eq(queueEntries.serviceDay, row.serviceDay), eq(queueEntries.status, "waiting"),
-      raw`${queueEntries.ticketNo} < ${row.ticketNo}`));
-  return { ...row, joinedAt: row.joinedAt.getTime(), ahead };
+  return { ...row, joinedAt: row.joinedAt.getTime() };
+}
+
+export type BranchInsights = Awaited<ReturnType<typeof readInsights>>;
+
+// Everything the dashboard shows, in one round trip. "Today" is the branch's own
+// service day, the same boundary queue numbers reset on, so the takings a
+// manager reads here match the tickets their staff handed out.
+export async function readInsights(scope: Scope, timezone: string) {
+  const day = serviceDayIn(timezone);
+  const database = getDatabase();
+  const [rows] = await database.execute(raw`
+    with today as (select ${day}::date as d),
+    tables as (
+      select count(*) filter (where state = 'available')::int as free,
+             count(*) filter (where state = 'occupied')::int as occupied,
+             count(*) filter (where state = 'reserved')::int as reserved,
+             count(*)::int as total,
+             coalesce(sum(capacity) filter (where state = 'occupied'), 0)::int as seated_capacity,
+             coalesce(sum(capacity), 0)::int as total_capacity
+      from dining_tables
+      where branch_id = ${scope.branchId} and organization_id = ${scope.organizationId} and enabled
+    ),
+    queue as (
+      select count(*) filter (where status = 'waiting')::int as waiting,
+             count(*) filter (where status = 'offered')::int as called,
+             count(*) filter (where status = 'seated')::int as seated_today,
+             count(*) filter (where status = 'no_show')::int as no_show_today,
+             coalesce(sum(party_size) filter (where status = 'seated'), 0)::int as covers_today,
+             coalesce(max(extract(epoch from (now() - joined_at))) filter (where status = 'waiting'), 0)::int as longest_wait_s,
+             coalesce(avg(extract(epoch from (seated_at - joined_at))) filter (where status = 'seated' and seated_at is not null), 0)::int as avg_wait_s
+      from queue_entries, today
+      where branch_id = ${scope.branchId} and organization_id = ${scope.organizationId} and service_day = today.d
+    ),
+    bills as (
+      select coalesce(sum(oi.unit_price_cents * oi.quantity) filter (where o.status <> 'cancelled'), 0)::int as revenue_cents,
+             coalesce(sum(oi.unit_price_cents * oi.quantity) filter (where o.status in ('placed','preparing')), 0)::int as open_cents,
+             count(distinct o.id) filter (where o.status in ('placed','preparing'))::int as open_bills,
+             coalesce(sum(oi.quantity) filter (where o.status <> 'cancelled'), 0)::int as items_today
+      from orders o join order_items oi on oi.order_id = o.id, today
+      where o.branch_id = ${scope.branchId} and o.organization_id = ${scope.organizationId}
+        and (o.created_at at time zone ${timezone})::date = today.d
+    ),
+    dishes as (
+      select oi.name, sum(oi.quantity)::int as sold
+      from orders o join order_items oi on oi.order_id = o.id, today
+      where o.branch_id = ${scope.branchId} and o.organization_id = ${scope.organizationId}
+        and o.status <> 'cancelled' and (o.created_at at time zone ${timezone})::date = today.d
+      group by oi.name order by sold desc limit 3
+    )
+    select to_jsonb(tables) as tables, to_jsonb(queue) as queue, to_jsonb(bills) as bills,
+           coalesce((select jsonb_agg(jsonb_build_object('name', name, 'sold', sold)) from dishes), '[]'::jsonb) as top
+    from tables, queue, bills
+  `);
+
+  const shape = rows as unknown as { tables: Record<string, number>; queue: Record<string, number>; bills: Record<string, number>; top: { name: string; sold: number }[] };
+  return {
+    day,
+    tables: shape.tables,
+    queue: shape.queue,
+    bills: shape.bills,
+    topDishes: shape.top ?? [],
+  };
 }

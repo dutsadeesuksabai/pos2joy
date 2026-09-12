@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Armchair, ArrowRight, Clock3, Plus, RefreshCw, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { joinQueue, seatTable, type ServiceResult } from "@/features/service/actions";
-import type { ServiceSnapshot } from "@/features/service/repository";
+import type { FairQueueSnapshot } from "@/features/service/reads";
 import { canSeat, defaultPolicy, planSeating } from "./recommend";
 import "./fair-queue.css";
 
-export function FairQueue({ branchId, snapshot }: { branchId: string; snapshot: ServiceSnapshot }) {
+export function FairQueue({ branchId, snapshot }: { branchId: string; snapshot: FairQueueSnapshot }) {
   const router = useRouter();
   const [now, setNow] = useState(snapshot.generatedAt);
   const [pending, startTransition] = useTransition();
@@ -24,9 +24,9 @@ export function FairQueue({ branchId, snapshot }: { branchId: string; snapshot: 
   const [reason, setReason] = useState("");
   useEffect(() => { setNow(snapshot.generatedAt); }, [snapshot.generatedAt]);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(timer); }, []);
-  const tables = snapshot.tables.map(t => ({ ...t, status: t.state, x: 0, y: 0 }));
-  const parties = snapshot.queue.map(p => ({ id: p.id, name: p.guestName, size: p.partySize, status: p.status, joinedAt: p.joinedAt, needsAccessible: p.needsAccessible, requestedFloorId: p.requestedFloorId }));
-  const plan = planSeating(tables, parties, now);
+  const tables = useMemo(() => snapshot.tables.map(t => ({ ...t, status: t.state, x: 0, y: 0 })), [snapshot.tables]);
+  const parties = useMemo(() => snapshot.queue.map(p => ({ id: p.id, name: p.guestName, size: p.partySize, status: p.status, joinedAt: p.joinedAt, needsAccessible: p.needsAccessible, requestedFloorId: p.requestedFloorId })), [snapshot.queue]);
+  const plan = useMemo(() => planSeating(tables, parties, now), [tables, parties, now]);
   const waiting = parties.filter(p => p.status === "waiting");
   const chosenParty = parties.find(p => p.id === manualParty);
   const eligibleTables = chosenParty ? tables.filter(t => canSeat(t, chosenParty)) : [];

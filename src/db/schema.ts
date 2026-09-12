@@ -1,6 +1,6 @@
 // Core schema; generate and review migrations before use. All tables deny client
 // access through RLS. Server queries must verify identity and tenant permissions.
-import { pgTable, uuid, text, integer, timestamp, unique, foreignKey, jsonb, check, uniqueIndex, boolean, date } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, timestamp, unique, foreignKey, jsonb, check, uniqueIndex, index, boolean, date } from "drizzle-orm/pg-core";
 import type { FloorCanvas } from "../features/floor/model";
 import { sql } from "drizzle-orm";
 
@@ -13,7 +13,7 @@ export const organizations = pgTable("organizations", {
 export const memberships = pgTable("organization_memberships", {
   id: id(), organizationId: uuid("organization_id").notNull().references(() => organizations.id),
   userId: uuid("user_id").notNull(), role: text("role", { enum: ["owner", "member"] }).notNull(),
-}, t => [unique().on(t.organizationId, t.userId), check("membership_role_valid", sql`${t.role} in ('owner', 'member')`)]).enableRLS();
+}, t => [index("membership_user_org_idx").on(t.userId, t.organizationId), unique().on(t.organizationId, t.userId), check("membership_role_valid", sql`${t.role} in ('owner', 'member')`)]).enableRLS();
 
 export const restaurants = pgTable("restaurants", {
   id: id(), organizationId: uuid("organization_id").notNull().references(() => organizations.id),
@@ -24,7 +24,7 @@ export const branches = pgTable("branches", {
   id: id(), organizationId: uuid("organization_id").notNull().references(() => organizations.id),
   restaurantId: uuid("restaurant_id").notNull(), name: text("name").notNull(),
   timezone: text("timezone").notNull().default("Asia/Bangkok"), currency: text("currency").notNull().default("THB"),
-}, t => [unique().on(t.id, t.organizationId), foreignKey({ columns: [t.restaurantId, t.organizationId], foreignColumns: [restaurants.id, restaurants.organizationId] })]).enableRLS();
+}, t => [index("branch_org_idx").on(t.organizationId), unique().on(t.id, t.organizationId), foreignKey({ columns: [t.restaurantId, t.organizationId], foreignColumns: [restaurants.id, restaurants.organizationId] })]).enableRLS();
 
 export const branchStaff = pgTable("branch_staff", {
   id: id(), organizationId: uuid("organization_id").notNull(), branchId: uuid("branch_id").notNull(), userId: uuid("user_id").notNull(),
@@ -86,6 +86,7 @@ export const queueEntries = pgTable("queue_entries", {
 }, t => [
   unique().on(t.id, t.branchId, t.organizationId),
   unique().on(t.branchId, t.serviceDay, t.ticketNo),
+  index("queue_branch_status_wait_idx").on(t.branchId, t.organizationId, t.status, t.joinedAt),
   check("ticket_no_positive", sql`${t.ticketNo} > 0`),
   check("party_size_positive", sql`${t.partySize} > 0`), check("queue_status_valid", sql`${t.status} in ('waiting', 'offered', 'seated', 'cancelled', 'no_show')`),
   foreignKey({ columns: [t.branchId, t.organizationId], foreignColumns: [branches.id, branches.organizationId] }),
@@ -117,6 +118,7 @@ export const menuItems = pgTable("menu_items", {
 }, t => [
   unique().on(t.branchId, t.name), unique().on(t.id, t.branchId, t.organizationId),
   check("menu_price_nonnegative", sql`${t.priceCents} >= 0`),
+  index("menu_branch_sort_idx").on(t.branchId, t.organizationId, t.sortOrder, t.name),
   check("menu_kind_valid", sql`${t.kind} in ('a_la_carte', 'buffet')`),
   foreignKey({ columns: [t.branchId, t.organizationId], foreignColumns: [branches.id, branches.organizationId] }),
 ]).enableRLS();
@@ -128,6 +130,8 @@ export const orders = pgTable("orders", {
 }, t => [
   unique().on(t.id, t.branchId, t.organizationId),
   check("order_status_valid", sql`${t.status} in ('placed', 'preparing', 'served', 'cancelled')`),
+  index("orders_branch_status_created_idx").on(t.branchId, t.organizationId, t.status, t.createdAt),
+  index("orders_table_status_created_idx").on(t.tableId, t.branchId, t.organizationId, t.status, t.createdAt),
   foreignKey({ columns: [t.tableId, t.branchId, t.organizationId], foreignColumns: [diningTables.id, diningTables.branchId, diningTables.organizationId] }),
 ]).enableRLS();
 

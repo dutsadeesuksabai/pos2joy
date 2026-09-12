@@ -66,6 +66,8 @@ export async function writeFloorPlan(actor: FloorActor, floorId: string, expecte
     if (mode === "publish") {
       const branchTables = await tx.select().from(diningTables).where(and(eq(diningTables.branchId, actor.branchId), eq(diningTables.organizationId, actor.organizationId))).orderBy(asc(diningTables.id)).for("update");
       const currentTables = branchTables.filter(table => table.floorId === floorId);
+      const branchTableById = new Map(branchTables.map(table => [table.id, table]));
+      const currentTableById = new Map(currentTables.map(table => [table.id, table]));
       const busyErrors = protectedTableChanges(normalized, published ? canvasSchema.parse(published.canvas) : null, currentTables);
       if (busyErrors.length) throw new FloorValidationError(busyErrors[0]);
       const plannedTables = normalized.objects.filter(object => object.kind === "table");
@@ -78,7 +80,7 @@ export async function writeFloorPlan(actor: FloorActor, floorId: string, expecte
       // Move renamed rows through unique temporary labels so two free tables
       // can exchange numbers in one publish. The transaction hides these names.
       for (const table of plannedTables) {
-        const existing = currentTables.find(t => t.id === table.id);
+        const existing = currentTableById.get(table.id);
         if (existing && existing.label !== table.label) {
           await tx.update(diningTables).set({ label: `__rename_${table.id}` }).where(and(eq(diningTables.id, table.id), eq(diningTables.branchId, actor.branchId), eq(diningTables.organizationId, actor.organizationId)));
         }
@@ -91,10 +93,12 @@ export async function writeFloorPlan(actor: FloorActor, floorId: string, expecte
       }
 
       for (const table of plannedTables) {
-        const existing = branchTables.find(t => t.id === table.id);
+        const existing = branchTableById.get(table.id);
         if (existing && existing.floorId !== floorId) throw new FloorValidationError("A table on this plan belongs to another floor.");
         const settings = { label: table.label, capacity: table.capacity, accessible: table.accessible, enabled: true };
         if (existing) {
+          // Publishing a wall/zone change should not rewrite every live table.
+          if (existing.label === settings.label && existing.capacity === settings.capacity && existing.accessible === settings.accessible && existing.enabled) continue;
           // Never accept the live state from the client. Preserve existing state.
           await tx.update(diningTables).set(settings).where(and(eq(diningTables.id, table.id), eq(diningTables.branchId, actor.branchId), eq(diningTables.organizationId, actor.organizationId), eq(diningTables.floorId, floorId)));
         } else {

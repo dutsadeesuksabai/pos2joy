@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { Check, ChefHat, Clock3, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { translate, type Locale } from "@/i18n/dictionary";
@@ -18,12 +19,11 @@ export function KitchenBoard({ branchId, tickets, locale }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [pending, startTransition] = useTransition();
 
-  // ponytail: a kitchen screen is left open, so it polls. Swap for Supabase
-  // Realtime if 15s ever feels slow, or if the request cost starts to matter.
+  useLiveRefresh(15000, pending);
   useEffect(() => {
-    const tick = setInterval(() => { setNow(Date.now()); router.refresh(); }, 15000);
+    const tick = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(tick);
-  }, [router]);
+  }, []);
 
   function move(orderId: string, status: "preparing" | "served" | "cancelled") {
     startTransition(async () => {

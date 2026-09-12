@@ -58,14 +58,13 @@ export async function placeGuestOrder(tableId: string, cart: Cart) {
     // have one; reuse whichever is open rather than starting a second.
     const [existing] = await tx.select({ id: orders.id }).from(orders)
       .where(and(eq(orders.tableId, table.id), eq(orders.branchId, scope.branchId), eq(orders.organizationId, scope.organizationId), inArray(orders.status, ["placed", "preparing"])))
-      .orderBy(asc(orders.createdAt)).for("update");
+      .orderBy(asc(orders.createdAt)).limit(1).for("update");
     const orderId = existing?.id ?? (await tx.insert(orders).values({ ...scope, tableId: table.id }).returning({ id: orders.id }))[0].id;
 
-    for (const line of lines) {
-      await tx.insert(orderItems).values({ ...scope, orderId, menuItemId: line.menuItemId, name: line.name, unitPriceCents: line.unitPriceCents, quantity: line.quantity })
-        // A dish ordered again adds to the round already on the bill.
-        .onConflictDoUpdate({ target: [orderItems.orderId, orderItems.menuItemId], set: { quantity: raw`${orderItems.quantity} + ${line.quantity}` } });
-    }
+    // One statement for the entire cart. The validated cart has unique menu IDs,
+    // and existing price/name snapshots are retained when adding more portions.
+    await tx.insert(orderItems).values(lines.map(line => ({ ...scope, orderId, ...line })))
+      .onConflictDoUpdate({ target: [orderItems.orderId, orderItems.menuItemId], set: { quantity: raw`${orderItems.quantity} + excluded.quantity` } });
     const [{ total }] = await tx.select({ total: raw<number>`coalesce(sum(${orderItems.unitPriceCents} * ${orderItems.quantity}), 0)::int` })
       .from(orderItems).where(eq(orderItems.orderId, orderId));
     return { orderId, totalCents: total, label: table.label };

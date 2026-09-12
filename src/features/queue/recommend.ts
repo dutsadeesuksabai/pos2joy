@@ -26,8 +26,11 @@ export type SeatingSuggestion = { table: ServiceTable; party: QueueParty; wait: 
 export function planSeating(tables: ServiceTable[], parties: QueueParty[], now: number, policy = defaultPolicy): SeatingSuggestion[] {
   if (!Number.isFinite(now) || !Number.isFinite(policy.maxWaitMinutes) || policy.maxWaitMinutes < 0 || !Number.isFinite(policy.fitWeight) || policy.fitWeight < 0) throw new Error("Invalid queue policy or time");
   if (new Set(tables.map(t => t.id)).size !== tables.length || new Set(parties.map(p => p.id)).size !== parties.length) throw new Error("Duplicate table or queue identity");
+  // All parties prefer the same table order; sort once for the room.
+  const available = tables.filter(table => table.status === "available").sort((a,b) => a.capacity - b.capacity || Number(Boolean(a.accessible)) - Number(Boolean(b.accessible)) || a.id.localeCompare(b.id));
+  const tableById = new Map(available.map(table => [table.id, table]));
   const candidates = parties.map(party => {
-    const options = tables.filter(table => canSeat(table, party)).sort((a,b) => a.capacity - b.capacity || Number(Boolean(a.accessible)) - Number(Boolean(b.accessible)) || a.id.localeCompare(b.id));
+    const options = available.filter(table => canSeat(table, party));
     const wait = Math.max(0, (now - party.joinedAt) / 60000);
     return { party, options, wait, overdue: wait >= policy.maxWaitMinutes, score: wait + (options.length ? policy.fitWeight * party.size / options[0].capacity : 0) };
   }).filter(item => item.options.length).sort((a,b) => Number(b.overdue) - Number(a.overdue) || (a.overdue && b.overdue ? a.party.joinedAt - b.party.joinedAt : b.score - a.score) || a.party.joinedAt - b.party.joinedAt || a.party.id.localeCompare(b.party.id));
@@ -43,9 +46,16 @@ export function planSeating(tables: ServiceTable[], parties: QueueParty[], now: 
     }
     return false;
   }
-  for (const candidate of candidates) assign(candidate, new Set());
+  for (const candidate of candidates) {
+    // Later-priority parties cannot add a seat once every available table is
+    // assigned. Avoid searching the entire graph for each remaining party.
+    if (owners.size === available.length) break;
+    assign(candidate, new Set());
+  }
+  const assigned = new Map<string, ServiceTable>();
+  for (const [tableId, candidate] of owners) assigned.set(candidate.party.id, tableById.get(tableId)!);
   return candidates.flatMap(candidate => {
-    const table = candidate.options.find(option => owners.get(option.id) === candidate);
+    const table = assigned.get(candidate.party.id);
     if (!table) return [];
     const explanation = recommend(table, [candidate.party], now, policy)[0];
     return [{ table, party: candidate.party, wait: candidate.wait, overdue: candidate.overdue, reason: `${explanation.reason}${candidate.party.needsAccessible ? " · accessible seating" : ""}${candidate.party.requestedFloorId ? " · requested area" : ""}` }];

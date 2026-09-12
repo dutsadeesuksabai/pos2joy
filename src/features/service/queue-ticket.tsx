@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { ticketLabel } from "@/features/queue/ticket";
 import { translate, type Locale } from "@/i18n/dictionary";
 import { LocaleSwitch } from "@/i18n/locale-switch";
@@ -10,15 +9,9 @@ import type { readQueueTicket } from "./repository";
 type Ticket = NonNullable<Awaited<ReturnType<typeof readQueueTicket>>>;
 
 export function QueueTicketView({ locale, ticket }: { locale: Locale; ticket: Ticket }) {
-  const router = useRouter();
   const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
-  // The guest is watching this while they wait, so it keeps itself current.
-  useEffect(() => {
-    const timer = setInterval(() => router.refresh(), 15000);
-    return () => clearInterval(timer);
-  }, [router]);
-
   const done = ticket.status === "seated" || ticket.status === "cancelled" || ticket.status === "no_show";
+  useLiveRefresh(15000, done);
 
   return <main className="qticket">
     <header>

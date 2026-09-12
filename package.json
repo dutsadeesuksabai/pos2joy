@@ -12,6 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file=.env scripts/migrate.mjs",
     "db:verify": "node --env-file=.env scripts/verify-db.mjs",
+    "db:profile": "node --env-file=.env scripts/profile-db.mjs",
+    "bench:performance": "node --experimental-strip-types scripts/benchmark-performance.mjs",
     "db:seed": "node --env-file=.env scripts/seed.mjs"
   },
   "dependencies": {

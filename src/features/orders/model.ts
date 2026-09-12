@@ -30,8 +30,9 @@ export class OrderRejectedError extends Error {}
 
 // Returns the lines to persist, priced from the menu rows the caller just read.
 export function priceCart(cart: Cart, menu: MenuItem[]) {
+  const byId = new Map(menu.map(item => [item.id, item]));
   return cart.items.map(line => {
-    const item = menu.find(entry => entry.id === line.menuItemId);
+    const item = byId.get(line.menuItemId);
     if (!item) throw new OrderRejectedError("Something on your order is no longer on the menu. Please review your cart.");
     if (!item.available) throw new OrderRejectedError(`${item.name} has just sold out. Please remove it and try again.`);
     return { menuItemId: item.id, name: item.name, unitPriceCents: item.priceCents, quantity: line.quantity };

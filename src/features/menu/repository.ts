@@ -75,13 +75,15 @@ export async function duplicateMenu(scope: Scope, sourceBranchId: string) {
     if (rows.length === 0) throw new MenuError("That branch has no menu to copy yet.");
 
     let copied = 0;
-    for (const row of rows) {
-      const [made] = await tx.insert(menuItems).values({
+    // Keep each statement bounded below Postgres' parameter limit, even when
+    // importing a large catalogue. Existing dishes still win name conflicts.
+    for (let offset = 0; offset < rows.length; offset += 500) {
+      const made = await tx.insert(menuItems).values(rows.slice(offset, offset + 500).map(row => ({
         branchId: scope.branchId, organizationId: scope.organizationId,
         name: row.name, category: row.category, kind: row.kind,
         priceCents: row.priceCents, available: row.available, sortOrder: row.sortOrder,
-      }).onConflictDoNothing({ target: [menuItems.branchId, menuItems.name] }).returning({ id: menuItems.id });
-      if (made) copied++;
+      }))).onConflictDoNothing({ target: [menuItems.branchId, menuItems.name] }).returning({ id: menuItems.id });
+      copied += made.length;
     }
     return { copied, skipped: rows.length - copied };
   });

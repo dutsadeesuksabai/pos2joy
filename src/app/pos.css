@@ -221,3 +221,32 @@ button.queue-no:hover{background:#dfe9f5}
 .table-legend .is-free{background:var(--free)}
 .table-legend .is-busy{background:var(--busy)}
 .table-legend .is-held{background:var(--held)}
+
+/* Dashboard. Sits above the room, filling the space a wide till screen leaves. */
+.dash{display:grid;gap:12px;margin-bottom:16px}
+.dash-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(148px,1fr))}
+.dash-tile{background:#fff;border:1px solid var(--border);border-left:4px solid var(--border);border-radius:var(--r-md);padding:13px 14px;display:grid;gap:5px;align-content:start}
+.dash-label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);letter-spacing:.3px}
+.dash-tile strong{font-size:26px;line-height:1.05;color:var(--deep);letter-spacing:-.8px;font-variant-numeric:tabular-nums}
+.dash-tile strong small{font-size:13px;font-weight:400;color:var(--muted);letter-spacing:0}
+.dash-sub{font-size:11px;color:var(--muted)}
+.dash-tile.free{border-left-color:var(--free)}
+.dash-tile.free strong{color:var(--free)}
+.dash-tile.attention{border-left-color:var(--held);background:var(--held-bg)}
+.dash-tile.attention strong{color:var(--held)}
+.dash-tile.calling{border-left-color:var(--busy);background:var(--busy-bg)}
+.dash-tile.calling strong{color:var(--busy)}
+.dash-tile.money{border-left-color:var(--primary)}
+.dash-tile.wide{grid-column:span 2}
+.dash-top{list-style:none;margin:2px 0 0;padding:0;display:grid;gap:5px}
+.dash-top li{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--deep)}
+.dash-top b{color:var(--primary);font-variant-numeric:tabular-nums}
+
+.dash-called{background:#fff;border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;display:grid;gap:8px}
+.dash-called.idle p{font-size:12px;color:var(--muted);margin:0}
+.dash-called ul{list-style:none;margin:0;padding:0;display:flex;gap:9px;flex-wrap:wrap}
+.dash-called li{display:flex;align-items:center;gap:9px;background:var(--busy-bg);border:1px solid var(--busy-line);border-radius:var(--r-sm);padding:8px 12px}
+.dash-called b{font-size:15px;color:var(--busy);font-variant-numeric:tabular-nums}
+.dash-called li span{font-size:12px;color:var(--deep)}
+.dash-called em{font-style:normal;font-size:15px;font-weight:700;color:var(--deep);background:#fff;border-radius:var(--r-xs);padding:3px 9px;min-width:34px;text-align:center}
+@media(max-width:520px){.dash-grid{grid-template-columns:repeat(auto-fit,minmax(118px,1fr))}.dash-tile strong{font-size:21px}.dash-tile.wide{grid-column:span 2}}

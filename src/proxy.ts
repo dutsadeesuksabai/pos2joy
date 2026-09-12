@@ -19,9 +19,10 @@ export async function proxy(request: NextRequest) {
       },
     },
   });
-  // Refresh and verify remotely. Authorization remains in each data-access call.
-  // Do not use the unverified user returned by getSession() for access checks.
-  await supabase.auth.getUser();
+  // Refresh cookies and verify the JWT. Asymmetric projects can use cached JWKS
+  // here; the data-access layer still calls getUser for current user state and
+  // checks branch membership in Postgres. Never trust getSession().user.
+  await supabase.auth.getClaims();
   return response;
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { ticketLabel } from "@/features/queue/ticket";
 import { translate, type Locale } from "@/i18n/dictionary";
 import { LocaleSwitch } from "@/i18n/locale-switch";
@@ -11,13 +10,7 @@ type Board = Awaited<ReturnType<typeof readCallBoard>>;
 
 export function CallDisplay({ restaurant, branch, board, locale }: { restaurant: string; branch: string; board: Board; locale: Locale }) {
   const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
-  const router = useRouter();
-  // ponytail: the wall screen polls. Sound and Realtime come later; this keeps
-  // the display a plain page with nothing to install or keep connected.
-  useEffect(() => {
-    const timer = setInterval(() => router.refresh(), 10000);
-    return () => clearInterval(timer);
-  }, [router]);
+  useLiveRefresh(10000);
 
   const [latest, ...earlier] = board.called;
 

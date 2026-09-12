@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BellRing, Check, Clock3, Printer, QrCode, Receipt, Users, X } from "lucide-react";
@@ -10,15 +10,16 @@ import { translate, type Locale } from "@/i18n/dictionary";
 import { ticketLabel } from "@/features/queue/ticket";
 import { canSeat, planSeating } from "@/features/queue/recommend";
 import { callQueue, cancelCall, closeTable, joinQueue, markTable, seatTable } from "./actions";
-import type { ServiceSnapshot } from "./repository";
+import { Dashboard } from "./dashboard";
+import type { BranchInsights, ServiceSnapshot } from "./repository";
 
-type Props = { branchId: string; currency: string; origin: string; snapshot: ServiceSnapshot; canBill: boolean; canQueue: boolean; locale: Locale };
+type Props = { branchId: string; currency: string; origin: string; snapshot: ServiceSnapshot; canBill: boolean; canQueue: boolean; locale: Locale; insights: BranchInsights };
 
 // One screen: the room on the left, the waiting list on the right. Seating used
 // to mean switching tabs to pick a table and switching back to press Seat; now
 // a party is chosen and a table tapped, and the tables that cannot take them
 // are dimmed so the wrong one is hard to hit.
-export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, canQueue, locale }: Props) {
+export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, canQueue, locale, insights }: Props) {
   const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   const router = useRouter();
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -35,11 +36,24 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, 
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(timer); }, []);
 
   const table = snapshot.tables.find(item => item.id === selectedTable) ?? null;
-  const billFor = (tableId: string) => snapshot.bills.find(bill => bill.tableId === tableId && bill.status !== "served");
-  const linesFor = (tableId: string) => snapshot.items.filter(item => item.tableId === tableId);
+  const billByTable = useMemo(() => {
+    const result = new Map<string, typeof snapshot.bills[number]>();
+    for (const bill of snapshot.bills) if (bill.status !== "served" && !result.has(bill.tableId)) result.set(bill.tableId, bill);
+    return result;
+  }, [snapshot.bills]);
+  const linesByTable = useMemo(() => {
+    const result = new Map<string, typeof snapshot.items>();
+    for (const item of snapshot.items) {
+      const lines = result.get(item.tableId) ?? [];
+      lines.push(item); result.set(item.tableId, lines);
+    }
+    return result;
+  }, [snapshot.items]);
+  const billFor = (tableId: string) => billByTable.get(tableId);
+  const linesFor = (tableId: string) => linesByTable.get(tableId) ?? [];
   const free = snapshot.tables.filter(item => item.state === "available").length;
-  const serviceTables = snapshot.tables.map(item => ({ ...item, status: item.state, x: 0, y: 0 }));
-  const queueParties = snapshot.queue.map(entry => ({ id: entry.id, name: entry.guestName, size: entry.partySize, joinedAt: entry.joinedAt, status: entry.status, needsAccessible: entry.needsAccessible, requestedFloorId: entry.requestedFloorId }));
+  const serviceTables = useMemo(() => snapshot.tables.map(item => ({ ...item, status: item.state, x: 0, y: 0 })), [snapshot.tables]);
+  const queueParties = useMemo(() => snapshot.queue.map(entry => ({ id: entry.id, name: entry.guestName, size: entry.partySize, joinedAt: entry.joinedAt, status: entry.status, needsAccessible: entry.needsAccessible, requestedFloorId: entry.requestedFloorId })), [snapshot.queue]);
 
   const seating = seatingId ? snapshot.queue.find(entry => entry.id === seatingId) ?? null : null;
   const seatingParty = seating ? queueParties.find(party => party.id === seating.id)! : null;
@@ -48,7 +62,8 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, 
     const candidate = serviceTables.find(item => item.id === tableId);
     return Boolean(candidate && canSeat(candidate, seatingParty));
   };
-  const matches = planSeating(serviceTables, queueParties, now).filter(match => match.table.id === table?.id);
+  const plan = useMemo(() => planSeating(serviceTables, queueParties, now), [serviceTables, queueParties, now]);
+  const matches = plan.filter(match => match.table.id === table?.id);
   const freeFor = (entryId: string) => {
     const party = queueParties.find(item => item.id === entryId);
     return party ? serviceTables.filter(item => canSeat(item, party)).sort((a, b) => a.capacity - b.capacity)[0] : undefined;
@@ -84,7 +99,11 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, 
     setSelectedTable(tableId === selectedTable ? null : tableId);
   }
 
+  const called = snapshot.queue.filter(entry => entry.status === "offered")
+    .map(entry => ({ id: entry.id, ticketNo: entry.ticketNo, guestName: entry.guestName, partySize: entry.partySize, calledTableLabel: entry.calledTableLabel }));
+
   return <section className="pos">
+    <Dashboard insights={insights} called={called} currency={currency} locale={locale} canBill={canBill}/>
     {message && <div className={`pos-message ${isError ? "error" : ""}`} role={isError ? "alert" : "status"}><span>{message}</span><button aria-label="Dismiss" onClick={() => setMessage("")}><X size={16}/></button></div>}
 
     <div className={`pos-body ${canQueue ? "" : "solo"}`}>
