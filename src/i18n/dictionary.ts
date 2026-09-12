@@ -124,6 +124,20 @@ const en = {
   "dash.parties": "parties",
   "dash.seatsFree": "seats free",
   "dash.none": "—",
+  "report.reports": "Reports",
+  "report.totalRevenue": "Takings",
+  "report.totalCovers": "Guests",
+  "report.totalOrders": "Orders",
+  "report.avgService": "Average service",
+  "report.revenueChart": "Takings per day",
+  "report.coversChart": "Guests per day",
+  "report.serviceChart": "Service time per day",
+  "report.toConfirm": "Waiting to start",
+  "report.toServe": "Cooking and serving",
+  "report.tableView": "Show the numbers as a table",
+  "report.day": "Day",
+  "report.span": "Last 30 days",
+  "report.empty": "No trading recorded yet.",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -246,6 +260,20 @@ const th: Partial<Record<MessageKey, string>> = {
   "dash.parties": "กลุ่ม",
   "dash.seatsFree": "ที่นั่งว่าง",
   "dash.none": "—",
+  "report.reports": "รายงาน",
+  "report.totalRevenue": "ยอดขาย",
+  "report.totalCovers": "จำนวนลูกค้า",
+  "report.totalOrders": "ออเดอร์",
+  "report.avgService": "เวลาเสิร์ฟเฉลี่ย",
+  "report.revenueChart": "ยอดขายรายวัน",
+  "report.coversChart": "จำนวนลูกค้ารายวัน",
+  "report.serviceChart": "เวลาเสิร์ฟรายวัน",
+  "report.toConfirm": "รอครัวเริ่มทำ",
+  "report.toServe": "ทำและเสิร์ฟ",
+  "report.tableView": "ดูเป็นตาราง",
+  "report.day": "วันที่",
+  "report.span": "30 วันล่าสุด",
+  "report.empty": "ยังไม่มีข้อมูลการขาย",
 };
 
 const zh: Partial<Record<MessageKey, string>> = {
@@ -366,6 +394,20 @@ const zh: Partial<Record<MessageKey, string>> = {
   "dash.parties": "组",
   "dash.seatsFree": "空位",
   "dash.none": "—",
+  "report.reports": "报表",
+  "report.totalRevenue": "营业额",
+  "report.totalCovers": "客人数",
+  "report.totalOrders": "订单数",
+  "report.avgService": "平均出餐时间",
+  "report.revenueChart": "每日营业额",
+  "report.coversChart": "每日客人数",
+  "report.serviceChart": "每日出餐时间",
+  "report.toConfirm": "等待厨房开始",
+  "report.toServe": "制作与上菜",
+  "report.tableView": "以表格查看",
+  "report.day": "日期",
+  "report.span": "最近 30 天",
+  "report.empty": "尚无营业记录。",
 };
 
 const dictionaries: Record<Locale, Partial<Record<MessageKey, string>>> = { en, th, zh };

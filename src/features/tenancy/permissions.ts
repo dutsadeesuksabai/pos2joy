@@ -1,10 +1,10 @@
 export const branchRoles = ["owner", "manager", "host", "server", "kitchen", "cashier"] as const;
 export type BranchRole = typeof branchRoles[number];
-export type Permission = "branch:read" | "floor:edit" | "queue:manage" | "orders:serve" | "kitchen:manage" | "billing:manage" | "team:manage" | "menu:manage";
+export type Permission = "branch:read" | "floor:edit" | "queue:manage" | "orders:serve" | "kitchen:manage" | "billing:manage" | "team:manage" | "menu:manage" | "reports:view";
 
 const permissions: Record<BranchRole, readonly Permission[]> = {
-  owner: ["branch:read", "floor:edit", "queue:manage", "orders:serve", "kitchen:manage", "billing:manage", "team:manage", "menu:manage"],
-  manager: ["branch:read", "floor:edit", "queue:manage", "orders:serve", "kitchen:manage", "billing:manage", "team:manage", "menu:manage"],
+  owner: ["branch:read", "floor:edit", "queue:manage", "orders:serve", "kitchen:manage", "billing:manage", "team:manage", "menu:manage", "reports:view"],
+  manager: ["branch:read", "floor:edit", "queue:manage", "orders:serve", "kitchen:manage", "billing:manage", "team:manage", "menu:manage", "reports:view"],
   host: ["branch:read", "queue:manage"],
   server: ["branch:read", "orders:serve"],
   kitchen: ["branch:read", "kitchen:manage"],

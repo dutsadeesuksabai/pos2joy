@@ -103,7 +103,8 @@ export async function closeBill(scope: Scope, tableId: string) {
     const [table] = await tx.select().from(diningTables)
       .where(and(eq(diningTables.id, tableId), scopeOf(diningTables, scope))).for("update");
     if (!table) throw new ServiceError("That table is no longer in service.");
-    await tx.update(orders).set({ status: "served" })
+    const closedAt = new Date();
+    await tx.update(orders).set({ status: "served", servedAt: closedAt, confirmedAt: raw`coalesce(${orders.confirmedAt}, ${closedAt})` })
       .where(and(scopeOf(orders, scope), eq(orders.tableId, table.id), inArray(orders.status, ["placed", "preparing"])));
     await tx.update(diningTables).set({ state: "available" }).where(eq(diningTables.id, table.id));
     return { label: table.label };
@@ -157,7 +158,14 @@ export async function advanceOrder(scope: Scope, orderId: string, next: OrderSta
     const allowed = canAdvanceOrder(order.status, next);
     if (allowed === "unchanged") return { changed: false, status: order.status };
     if (!allowed) throw new ServiceError(`An order that is ${order.status} cannot become ${next}.`);
-    await tx.update(orders).set({ status: next }).where(eq(orders.id, order.id));
+    // Stamp the moment, once. A ticket that somehow goes straight to served
+    // still records when it was confirmed, so the two spans always add up.
+    const now = new Date();
+    await tx.update(orders).set({
+      status: next,
+      ...(next === "preparing" && !order.confirmedAt ? { confirmedAt: now } : {}),
+      ...(next === "served" ? { servedAt: now, ...(order.confirmedAt ? {} : { confirmedAt: now }) } : {}),
+    }).where(eq(orders.id, order.id));
     return { changed: true, status: next };
   });
 }

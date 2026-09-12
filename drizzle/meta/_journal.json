@@ -43,6 +43,13 @@
       "when": 1789219011498,
       "tag": "0005_smart_dracula",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789220652372,
+      "tag": "0006_ambitious_smiling_tiger",
+      "breakpoints": true
     }
   ]
 }

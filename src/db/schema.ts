@@ -127,6 +127,9 @@ export const orders = pgTable("orders", {
   id: id(), organizationId: uuid("organization_id").notNull(), branchId: uuid("branch_id").notNull(), tableId: uuid("table_id").notNull(),
   status: text("status", { enum: ["placed", "preparing", "served", "cancelled"] }).notNull().default("placed"),
   createdAt: createdAt(),
+  // Stamped as the ticket moves, so service time is measured rather than guessed.
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  servedAt: timestamp("served_at", { withTimezone: true }),
 }, t => [
   unique().on(t.id, t.branchId, t.organizationId),
   check("order_status_valid", sql`${t.status} in ('placed', 'preparing', 'served', 'cancelled')`),
