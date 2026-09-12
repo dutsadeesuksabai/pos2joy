@@ -94,6 +94,12 @@ export function ServiceConsole({ branchId, currency, origin, snapshot, canBill, 
           <button onClick={() => setSeatingId(null)}>{t("staff.cancel")}</button>
         </div>}
 
+        {snapshot.tables.length > 0 && <div className="table-legend">
+          <span><i className="is-free"/>{t("staff.available")}</span>
+          <span><i className="is-busy"/>{t("staff.occupied")}</span>
+          <span><i className="is-held"/>{t("staff.reservedState")}</span>
+        </div>}
+
         {snapshot.tables.length === 0
           ? <p className="pos-empty">{t("staff.noTables")}<br/><Link className="pos-fix" href={`/workspace/${branchId}/floor`}>{t("staff.setUpFloor")}</Link></p>
           : <div className="table-grid">{snapshot.tables.map(item => {

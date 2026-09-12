@@ -13,7 +13,7 @@
 .slip-scan{font-size:8pt;line-height:1.4}
 .slip-url{font-size:6pt;word-break:break-all;margin-top:1.5mm;color:#333}
 .slip-keep{font-size:7pt;margin-top:3mm}
-.slip-print{border:0;background:var(--primary);color:#fff;border-radius:10px;min-height:46px;padding:0 22px;font-size:14px}
+.slip-print{border:0;background:var(--primary);color:#fff;border-radius:var(--r-sm);min-height:46px;padding:0 22px;font-size:14px}
 @media print{
   /* Thermal rolls are continuous: fixed height would eject a blank page. */
   @page{size:58mm auto;margin:0}
